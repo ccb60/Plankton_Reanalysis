@@ -1,0 +1,700 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{ifxetex,ifluatex}
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+  \usepackage{amssymb}
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\hypersetup{
+  pdftitle={Graphic Ideas for Showing Predictors in Space And Time},
+  pdfauthor={Curtis C. Bohlen, Casco Bay Estuary Partnership},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+\urlstyle{same} % disable monospaced font for URLs
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\ifluatex
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+
+\title{Graphic Ideas for Showing Predictors in Space And Time}
+\author{Curtis C. Bohlen, Casco Bay Estuary Partnership}
+\date{1/30/2022}
+
+\begin{document}
+\maketitle
+
+{
+\setcounter{tocdepth}{3}
+\tableofcontents
+}
+\hypertarget{introduction}{%
+\section{Introduction}\label{introduction}}
+
+A central challenge of making sense of ecological processes complex
+estuary environments is that conditions in the estuary vary in complex
+ways in time and space. Mixing of fresh and salt water creates steep
+three dimensional ecotones of salinity, temperature, and water density.
+Those ecotones drive local hydrodynamics that can concentrate nutrients
+or particulates in certain times or places, while diluting them or
+washing them out of the estuary elsewhere. The ecotones themselves shape
+the spatio-temporal structure of other ``predictors'' of zooplankton
+abundance
+
+In this notebook, I look at ideas for graphically showing the
+spatio-temporal structure of predictors.
+
+\hypertarget{a-side-note}{%
+\section{A Side Note}\label{a-side-note}}
+
+Depth-related data from vertical profiles, especially of salinity and
+temperature (and thus water density) would provide another way of
+looking at the spatio-temporal structure of the data. I do not have
+access to full profile data. If you do have that available, interpolated
+``profile'' plots of predictors up and down the estuary are great, but
+there end up being a lot of them\ldots{}
+
+I wrote a small R package, \texttt{tdggraph}, available via the
+\href{https://github.com/CBEP-SoCB/tdggraph.git}{CBEP GitHub page} to
+facilitate making ``interpolated'' graphics based on vertical profiles.
+It's still slightly buggy, but it means this is feasible entirely in R.
+
+\hypertarget{load-libraries}{%
+\section{Load Libraries}\label{load-libraries}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(tidyverse)}
+\FunctionTok{library}\NormalTok{(readxl)}
+\FunctionTok{library}\NormalTok{(mgcv)      }\CommentTok{\# for GAM models}
+\FunctionTok{library}\NormalTok{(emmeans)   }\CommentTok{\# For extracting useful "marginal" model summaries}
+
+\FunctionTok{theme\_set}\NormalTok{(}\FunctionTok{theme\_classic}\NormalTok{())}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{load-data}{%
+\section{Load Data}\label{load-data}}
+
+\hypertarget{folder-reference}{%
+\subsection{Folder Reference}\label{folder-reference}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{data\_folder }\OtherTok{\textless{}{-}} \StringTok{"Original\_Data"}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{load-data-from-source}{%
+\subsection{Load Data From Source}\label{load-data-from-source}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{filename.in }\OtherTok{\textless{}{-}} \StringTok{"penob.station.data EA 3.12.20.xlsx"}
+\NormalTok{file\_path }\OtherTok{\textless{}{-}} \FunctionTok{file.path}\NormalTok{(data\_folder, filename.in)}
+\NormalTok{station\_data }\OtherTok{\textless{}{-}} \FunctionTok{read\_excel}\NormalTok{(file\_path, }
+                           \AttributeTok{sheet=}\StringTok{"Final"}\NormalTok{, }\AttributeTok{col\_types =} \FunctionTok{c}\NormalTok{(}\StringTok{"skip"}\NormalTok{, }\StringTok{"date"}\NormalTok{, }
+                                              \StringTok{"numeric"}\NormalTok{, }\StringTok{"text"}\NormalTok{, }\StringTok{"numeric"}\NormalTok{, }
+                                              \StringTok{"text"}\NormalTok{, }\StringTok{"skip"}\NormalTok{, }\StringTok{"skip"}\NormalTok{, }
+                                              \StringTok{"skip"}\NormalTok{, }
+                                              \FunctionTok{rep}\NormalTok{(}\StringTok{"numeric"}\NormalTok{, }\DecValTok{10}\NormalTok{),}
+                                              \StringTok{"text"}\NormalTok{, }
+                                              \FunctionTok{rep}\NormalTok{(}\StringTok{"numeric"}\NormalTok{, }\DecValTok{47}\NormalTok{),}
+                                              \StringTok{"text"}\NormalTok{,}
+                                              \FunctionTok{rep}\NormalTok{(}\StringTok{"numeric"}\NormalTok{, }\DecValTok{12}\NormalTok{))) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{rename\_with}\NormalTok{(}\SpecialCharTok{\textasciitilde{}} \FunctionTok{gsub}\NormalTok{(}\StringTok{" "}\NormalTok{, }\StringTok{"\_"}\NormalTok{, .x)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{rename\_with}\NormalTok{(}\SpecialCharTok{\textasciitilde{}} \FunctionTok{gsub}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{."}\NormalTok{, }\StringTok{"\_"}\NormalTok{, .x)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{rename\_with}\NormalTok{(}\SpecialCharTok{\textasciitilde{}} \FunctionTok{gsub}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{?"}\NormalTok{, }\StringTok{""}\NormalTok{, .x)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{rename\_with}\NormalTok{(}\SpecialCharTok{\textasciitilde{}} \FunctionTok{gsub}\NormalTok{(}\StringTok{"\%"}\NormalTok{, }\StringTok{"pct"}\NormalTok{, .x)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{rename\_with}\NormalTok{(}\SpecialCharTok{\textasciitilde{}} \FunctionTok{gsub}\NormalTok{(}\StringTok{"\_Abundance"}\NormalTok{, }\StringTok{""}\NormalTok{, .x)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{filter}\NormalTok{(}\SpecialCharTok{!} \FunctionTok{is.na}\NormalTok{(date))}
+\CommentTok{\#\textgreater{} New names:}
+\CommentTok{\#\textgreater{} * \textasciigrave{}\textasciigrave{} {-}\textgreater{} ...61}
+\NormalTok{station\_data }\OtherTok{\textless{}{-}}\NormalTok{ station\_data }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{station =} \FunctionTok{factor}\NormalTok{(}\FunctionTok{as.numeric}\NormalTok{(}\FunctionTok{factor}\NormalTok{(station))))}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{subsetting-to-desired-data}{%
+\subsection{Subsetting to Desired
+Data}\label{subsetting-to-desired-data}}
+
+I base selection of predictor variables here on the ones used for the
+environmental loading in the community analysis. It's not obvious to me
+that these are the right indicators. It may be easier to understand
+patterns in terms of time of year or relative location in the estuary.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{base\_data }\OtherTok{\textless{}{-}}\NormalTok{ station\_data }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{rename}\NormalTok{(}\AttributeTok{Date =}\NormalTok{ date, }
+         \AttributeTok{Station =}\NormalTok{ station,}
+         \AttributeTok{Year =}\NormalTok{ year) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\FunctionTok{c}\NormalTok{(month, month\_num)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Month =} \FunctionTok{factor}\NormalTok{(}\FunctionTok{as.numeric}\NormalTok{(}\FunctionTok{format}\NormalTok{(Date, }\AttributeTok{format =} \StringTok{\textquotesingle{}\%m\textquotesingle{}}\NormalTok{)),}
+                                                \AttributeTok{levels =} \DecValTok{1}\SpecialCharTok{:}\DecValTok{12}\NormalTok{, }
+                                                \AttributeTok{labels =}\NormalTok{ month.abb),}
+         \AttributeTok{DOY =} \FunctionTok{as.numeric}\NormalTok{(}\FunctionTok{format}\NormalTok{(Date,}\AttributeTok{format =} \StringTok{\textquotesingle{}\%j\textquotesingle{}}\NormalTok{))) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{season =} \FunctionTok{factor}\NormalTok{(season, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{\textquotesingle{}Spring\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Summer\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Fall\textquotesingle{}}\NormalTok{))) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{rename}\NormalTok{(}\AttributeTok{Season =}\NormalTok{ season,}
+         \AttributeTok{Temp =}\NormalTok{ ave\_temp\_c,}
+         \AttributeTok{Sal =}\NormalTok{ ave\_sal\_psu,}
+         \AttributeTok{Turb =}\NormalTok{ sur\_turb,}
+         \AttributeTok{AvgTurb =}\NormalTok{ ave\_turb\_ntu,}
+         \AttributeTok{DOsat =}\NormalTok{ ave\_DO\_Saturation,}
+         \AttributeTok{Chl =}\NormalTok{ ave\_chl\_microgperl,}
+         \AttributeTok{RH =}\NormalTok{ Herring}
+\NormalTok{         ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(Date, Station, Year, Month, Season, DOY, riv\_km, Temp, Sal, Turb, AvgTurb, }
+\NormalTok{         DOsat, Chl, RH, }
+\NormalTok{         combined\_density,H, SEI,}
+\NormalTok{         Acartia, Balanus, Eurytemora, Polychaete, Pseudocal, Temora) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{arrange}\NormalTok{(Date, Station)}
+\FunctionTok{head}\NormalTok{(base\_data)}
+\CommentTok{\#\textgreater{} \# A tibble: 6 x 23}
+\CommentTok{\#\textgreater{}   Date                Station  Year Month Season   DOY riv\_km  Temp     Sal}
+\CommentTok{\#\textgreater{}   \textless{}dttm\textgreater{}              \textless{}fct\textgreater{}   \textless{}dbl\textgreater{} \textless{}fct\textgreater{} \textless{}fct\textgreater{}  \textless{}dbl\textgreater{}  \textless{}dbl\textgreater{} \textless{}dbl\textgreater{}   \textless{}dbl\textgreater{}}
+\CommentTok{\#\textgreater{} 1 2013{-}05{-}28 00:00:00 1        2013 May   Spring   148  22.6  11.7   0.0200}
+\CommentTok{\#\textgreater{} 2 2013{-}05{-}28 00:00:00 2        2013 May   Spring   148  13.9   9.40 14.6   }
+\CommentTok{\#\textgreater{} 3 2013{-}05{-}28 00:00:00 3        2013 May   Spring   148   8.12  6.97 24.7   }
+\CommentTok{\#\textgreater{} 4 2013{-}05{-}28 00:00:00 4        2013 May   Spring   148   2.78  9.51 12.7   }
+\CommentTok{\#\textgreater{} 5 2013{-}07{-}25 00:00:00 1        2013 Jul   Summer   206  22.6  18.5  16.0   }
+\CommentTok{\#\textgreater{} 6 2013{-}07{-}25 00:00:00 2        2013 Jul   Summer   206  13.9  13.6  27.0   }
+\CommentTok{\#\textgreater{} \# ... with 14 more variables: Turb \textless{}dbl\textgreater{}, AvgTurb \textless{}dbl\textgreater{}, DOsat \textless{}dbl\textgreater{},}
+\CommentTok{\#\textgreater{} \#   Chl \textless{}dbl\textgreater{}, RH \textless{}dbl\textgreater{}, combined\_density \textless{}dbl\textgreater{}, H \textless{}dbl\textgreater{}, SEI \textless{}dbl\textgreater{},}
+\CommentTok{\#\textgreater{} \#   Acartia \textless{}dbl\textgreater{}, Balanus \textless{}dbl\textgreater{}, Eurytemora \textless{}dbl\textgreater{}, Polychaete \textless{}dbl\textgreater{},}
+\CommentTok{\#\textgreater{} \#   Pseudocal \textless{}dbl\textgreater{}, Temora \textless{}dbl\textgreater{}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{rm}\NormalTok{(station\_data)}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{long-version-of-the-data}{%
+\subsection{``Long'' Version of the
+Data}\label{long-version-of-the-data}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{long\_data }\OtherTok{\textless{}{-}}\NormalTok{ base\_data }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\FunctionTok{c}\NormalTok{(H}\SpecialCharTok{:}\NormalTok{Temora,  AvgTurb, DOsat)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{pivot\_longer}\NormalTok{(}\SpecialCharTok{{-}}\FunctionTok{c}\NormalTok{(Date}\SpecialCharTok{:}\NormalTok{riv\_km, combined\_density), }
+               \AttributeTok{names\_to =} \StringTok{\textquotesingle{}Predictor\textquotesingle{}}\NormalTok{, }\AttributeTok{values\_to =} \StringTok{\textquotesingle{}Values\textquotesingle{}}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Predictor =} \FunctionTok{factor}\NormalTok{(Predictor, }
+                            \AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{\textquotesingle{}Temp\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Sal\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Turb\textquotesingle{}}\NormalTok{,}
+                                                  \StringTok{\textquotesingle{}Chl\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}RH\textquotesingle{}}\NormalTok{),}
+                            \AttributeTok{labels =} \FunctionTok{c}\NormalTok{(}\StringTok{"Temperature"}\NormalTok{, }\StringTok{"Salinity"}\NormalTok{, }\StringTok{"Turbidity"}\NormalTok{,}
+                                       \StringTok{"Chlorophyll"}\NormalTok{, }\StringTok{"River Herring"}\NormalTok{)))}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{add-fancy-labels-for-figures}{%
+\subsubsection{Add Fancy Labels for
+Figures}\label{add-fancy-labels-for-figures}}
+
+These fancy labels are expressions, which allows me to include
+non-standard glyphs, greek letters, superscripts, etc.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{plain\_labels }\OtherTok{=}\NormalTok{ levels }\OtherTok{=} \FunctionTok{c}\NormalTok{(}\StringTok{"Temperature"}\NormalTok{,}
+                          \StringTok{"Salinity"}\NormalTok{, }
+                          \StringTok{"Turbidity"}\NormalTok{,}
+                          \StringTok{"Chlorophyll"}\NormalTok{, }
+                          \StringTok{"River Herring"}\NormalTok{)}
+
+\NormalTok{fancy\_labels }\OtherTok{=}  \FunctionTok{c}\NormalTok{(}\FunctionTok{expression}\NormalTok{(}\StringTok{"Temperature ("} \SpecialCharTok{*}\NormalTok{ degree }\SpecialCharTok{*} \StringTok{"C)"}\NormalTok{),}
+                  \FunctionTok{expression}\NormalTok{(}\StringTok{"Salinity"} \SpecialCharTok{\textasciitilde{}} \StringTok{"(PSU)"}\NormalTok{),}
+                  \FunctionTok{expression}\NormalTok{(}\StringTok{"Turbidity"} \SpecialCharTok{\textasciitilde{}} \StringTok{"(NTU)"}\NormalTok{),}
+                  \FunctionTok{expression}\NormalTok{(}\StringTok{"Chlorophyll ("} \SpecialCharTok{*}\NormalTok{ mu }\SpecialCharTok{*}\NormalTok{ g }\SpecialCharTok{*}\NormalTok{ L }\SpecialCharTok{\^{}{-}}\DecValTok{1} \SpecialCharTok{\textasciitilde{}}\StringTok{")"}\NormalTok{), }
+                  \FunctionTok{expression}\NormalTok{(}\StringTok{"River Herring"} \SpecialCharTok{\textasciitilde{}}  \StringTok{"(CPUE)"}\NormalTok{))}
+
+\NormalTok{fancy\_labels\_2 }\OtherTok{=}  \FunctionTok{c}\NormalTok{(}\FunctionTok{expression}\NormalTok{(}\StringTok{"Temperature ("} \SpecialCharTok{*}\NormalTok{ degree }\SpecialCharTok{*} \StringTok{"C)"}\NormalTok{),}
+                    \FunctionTok{expression}\NormalTok{(}\StringTok{"Salinity"} \SpecialCharTok{\textasciitilde{}} \StringTok{"(PSU)"}\NormalTok{),}
+                    \FunctionTok{expression}\NormalTok{(}\StringTok{"Log(Turbidity)"} \SpecialCharTok{\textasciitilde{}} \StringTok{"(NTU)"}\NormalTok{),}
+                    \FunctionTok{expression}\NormalTok{(}\StringTok{"Log(Chlorophyll) ("} \SpecialCharTok{*}\NormalTok{ mu }\SpecialCharTok{*}\NormalTok{ g }\SpecialCharTok{*}\NormalTok{ L }\SpecialCharTok{\^{}{-}}\DecValTok{1} \SpecialCharTok{\textasciitilde{}}\StringTok{")"}\NormalTok{), }
+                    \FunctionTok{expression}\NormalTok{(}\StringTok{"Log(1 + River Herring)"} \SpecialCharTok{\textasciitilde{}}  \StringTok{"(CPUE)"}\NormalTok{))}
+
+\NormalTok{long\_data }\OtherTok{\textless{}{-}}\NormalTok{ long\_data }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{fancy\_p =} \FunctionTok{factor}\NormalTok{(Predictor, }\AttributeTok{levels =}\NormalTok{ plain\_labels, }
+                        \AttributeTok{labels =}\NormalTok{ fancy\_labels))}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{add-transformed-predictors}{%
+\subsubsection{Add Transformed
+Predictors}\label{add-transformed-predictors}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{new\_values }\OtherTok{\textless{}{-}}\NormalTok{ base\_data }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\FunctionTok{c}\NormalTok{(H}\SpecialCharTok{:}\NormalTok{Temora,  AvgTurb, DOsat)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Turb =} \FunctionTok{log}\NormalTok{(Turb),}
+         \AttributeTok{Chl =} \FunctionTok{log}\NormalTok{(Chl),}
+         \AttributeTok{RH =} \FunctionTok{log1p}\NormalTok{(RH)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{pivot\_longer}\NormalTok{(}\SpecialCharTok{{-}}\FunctionTok{c}\NormalTok{(Date}\SpecialCharTok{:}\NormalTok{riv\_km, combined\_density), }
+               \AttributeTok{names\_to =} \StringTok{\textquotesingle{}Predictor\textquotesingle{}}\NormalTok{, }\AttributeTok{values\_to =} \StringTok{\textquotesingle{}Values\_2\textquotesingle{}}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{pull}\NormalTok{(}\StringTok{\textquotesingle{}Values\_2\textquotesingle{}}\NormalTok{)}
+
+\NormalTok{long\_data }\OtherTok{\textless{}{-}}\NormalTok{ long\_data }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Transformed\_Values =}\NormalTok{ new\_values,}
+         \AttributeTok{fancy\_p\_2 =} \FunctionTok{factor}\NormalTok{(Predictor, }\AttributeTok{levels =}\NormalTok{ plain\_labels, }
+                        \AttributeTok{labels =}\NormalTok{ fancy\_labels\_2))}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{add-mean-river-kilometers}{%
+\subsubsection{Add Mean River
+Kilometers}\label{add-mean-river-kilometers}}
+
+We will want a variable that replaces Site with the mean or median river
+km associated with that site, for graphing purposes.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{lookup }\OtherTok{\textless{}{-}}\NormalTok{ base\_data }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(Station) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{summarize}\NormalTok{(}\AttributeTok{mean\_riv\_km =} \FunctionTok{round}\NormalTok{(}\FunctionTok{mean}\NormalTok{(riv\_km, }\AttributeTok{na.rm =} \ConstantTok{TRUE}\NormalTok{),}\DecValTok{1}\NormalTok{))}
+
+\NormalTok{base\_data }\OtherTok{\textless{}{-}}\NormalTok{ base\_data }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{left\_join}\NormalTok{(lookup, }\AttributeTok{by =} \StringTok{\textquotesingle{}Station\textquotesingle{}}\NormalTok{)}
+
+\NormalTok{long\_data }\OtherTok{\textless{}{-}}\NormalTok{ long\_data }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{left\_join}\NormalTok{(lookup, }\AttributeTok{by =} \StringTok{\textquotesingle{}Station\textquotesingle{}}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{longitudinal-slices-down-estuary}{%
+\section{Longitudinal ``Slices'' Down
+Estuary}\label{longitudinal-slices-down-estuary}}
+
+\hypertarget{three-possible-base-graphic-designs}{%
+\subsection{Three Possible Base Graphic
+Designs}\label{three-possible-base-graphic-designs}}
+
+I should be more selective about colors, legends, labels, etc. These
+preliminary graphics are just to get a sense of each layout.
+
+\hypertarget{longitudinal-traces-for-each-day}{%
+\subsubsection{Longitudinal Traces for Each
+Day}\label{longitudinal-traces-for-each-day}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(base\_data, }\FunctionTok{aes}\NormalTok{(riv\_km, Temp, }\AttributeTok{group =} \FunctionTok{factor}\NormalTok{(Date))) }\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{color =}\NormalTok{ Month))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics{Graphics-for-Predictors-in-Estuaries_files/figure-latex/unnamed-chunk-6-1} \end{center}
+
+\hypertarget{means-by-month-and-station}{%
+\subsubsection{Means by Month and
+Station}\label{means-by-month-and-station}}
+
+We ``recast'' Station by the mean river kilometer of that station's
+data. This shows means plus bootstrapped 95\% confidence intervals. An
+alternative with means and standard errors is also possible. I selected
+the bootstrapped 95\% confidence intervals because they are likely to
+work even with highly skewed data.
+
+(It occurs to me that I could add ``raw'' data behind the means and
+confidence intervals.)
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(base\_data, }\FunctionTok{aes}\NormalTok{(mean\_riv\_km, Temp)) }\SpecialCharTok{+}
+    \FunctionTok{stat\_summary}\NormalTok{(}\AttributeTok{geom =} \StringTok{\textquotesingle{}line\textquotesingle{}}\NormalTok{, }
+                 \FunctionTok{aes}\NormalTok{(}\AttributeTok{color =}\NormalTok{ Season), }
+                 \AttributeTok{fun =}\NormalTok{ ,}
+                 \AttributeTok{alpha =} \FloatTok{0.25}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{stat\_summary}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{color =}\NormalTok{ Season), }
+               \AttributeTok{fun.data =}\NormalTok{ mean\_cl\_boot,}
+               \AttributeTok{alpha =} \FloatTok{0.75}\NormalTok{)}
+\CommentTok{\#\textgreater{} No summary function supplied, defaulting to \textasciigrave{}mean\_se()\textasciigrave{}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics{Graphics-for-Predictors-in-Estuaries_files/figure-latex/unnamed-chunk-7-1} \end{center}
+
+\hypertarget{smoothers}{%
+\subsubsection{Smoothers}\label{smoothers}}
+
+This one could be simplified by suppressing some of the information,
+such as the year of each observation.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(base\_data, }\FunctionTok{aes}\NormalTok{(riv\_km, Temp, }\AttributeTok{color =}\NormalTok{ Season)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_smooth}\NormalTok{(}\AttributeTok{mapping =} \FunctionTok{aes}\NormalTok{(}\AttributeTok{fill =}\NormalTok{ Season), }
+              \AttributeTok{method =} \StringTok{\textquotesingle{}gam\textquotesingle{}}\NormalTok{, }
+              \AttributeTok{formula =}\NormalTok{ y }\SpecialCharTok{\textasciitilde{}} \FunctionTok{s}\NormalTok{(x, }\AttributeTok{bs =} \StringTok{"ts"}\NormalTok{),}
+              \AttributeTok{alpha =} \FloatTok{0.2}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{((}\FunctionTok{aes}\NormalTok{(}\AttributeTok{shape =} \FunctionTok{factor}\NormalTok{(Year)))) }\SpecialCharTok{+}
+
+  \FunctionTok{xlab}\NormalTok{(}\StringTok{\textquotesingle{}River Kilometer\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{ylab}\NormalTok{(}\StringTok{\textquotesingle{}Temperature (C)\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  
+  \FunctionTok{scale\_shape}\NormalTok{(}\AttributeTok{name =} \StringTok{\textquotesingle{}Year\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  
+  \CommentTok{\# All the following is unnecessary here, since  these are mostly defaults, but}
+  \CommentTok{\# I Include them as reminders of how to control the legend.}
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{legend.position =} \StringTok{\textquotesingle{}right\textquotesingle{}}\NormalTok{, }
+        \AttributeTok{legend.box =} \StringTok{\textquotesingle{}vertical\textquotesingle{}}\NormalTok{,}
+        \AttributeTok{legend.title.align =} \DecValTok{0}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{guides}\NormalTok{(}\AttributeTok{color =} \FunctionTok{guide\_legend}\NormalTok{(}\AttributeTok{title.position =} \StringTok{"top"}\NormalTok{),}
+         \AttributeTok{shape =} \FunctionTok{guide\_legend}\NormalTok{(}\AttributeTok{title.position =} \StringTok{"top"}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics{Graphics-for-Predictors-in-Estuaries_files/figure-latex/unnamed-chunk-8-1} \end{center}
+
+\hypertarget{using-facet_wrap-to-show-several-predictors}{%
+\subsection{\texorpdfstring{Using \texttt{facet\_wrap()} to Show Several
+Predictors}{Using facet\_wrap() to Show Several Predictors}}\label{using-facet_wrap-to-show-several-predictors}}
+
+These could all be reshaped into five graphics vertically or
+horizontally, if that works better.
+
+\hypertarget{all-longitudinal-profiles-transformed-values}{%
+\subsubsection{All Longitudinal Profiles, Transformed
+Values}\label{all-longitudinal-profiles-transformed-values}}
+
+The vertical axis labels are now quite long, so I had to shrink the
+fonts.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(long\_data, }\FunctionTok{aes}\NormalTok{(riv\_km, Transformed\_Values, }\AttributeTok{group =} \FunctionTok{factor}\NormalTok{(Date))) }\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{color =}\NormalTok{ Season)) }\SpecialCharTok{+}
+  \FunctionTok{theme\_classic}\NormalTok{(}\AttributeTok{base\_size =} \FloatTok{9.5}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{legend.position=}\StringTok{"bottom"}\NormalTok{,}
+        \AttributeTok{strip.placement =} \StringTok{\textquotesingle{}outside\textquotesingle{}}\NormalTok{,}
+        \AttributeTok{strip.background =} \FunctionTok{element\_blank}\NormalTok{()) }\SpecialCharTok{+}
+  \FunctionTok{scale\_color\_viridis\_d}\NormalTok{(}\AttributeTok{name =} \StringTok{\textquotesingle{}\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{facet\_wrap}\NormalTok{(}\SpecialCharTok{\textasciitilde{}}\NormalTok{fancy\_p\_2, }
+             \AttributeTok{scales =} \StringTok{\textquotesingle{}free\_y\textquotesingle{}}\NormalTok{, }
+             \AttributeTok{nrow =} \DecValTok{2}\NormalTok{,}
+             \AttributeTok{strip.position =} \StringTok{\textquotesingle{}left\textquotesingle{}}\NormalTok{,}
+             \AttributeTok{labeller =}\NormalTok{ label\_parsed) }\SpecialCharTok{+}
+  \FunctionTok{ylab}\NormalTok{(}\StringTok{\textquotesingle{}\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{xlab}\NormalTok{(}\StringTok{\textquotesingle{}River Kilometer\textquotesingle{}}\NormalTok{)}
+\CommentTok{\#\textgreater{} Warning: Removed 1 row(s) containing missing values (geom\_path).}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics{Graphics-for-Predictors-in-Estuaries_files/figure-latex/unnamed-chunk-9-1} \end{center}
+
+I find that too busy.
+
+\hypertarget{all-monthly-summaries-on-transformed-predictors}{%
+\subsubsection{All Monthly Summaries (on Transformed
+Predictors)}\label{all-monthly-summaries-on-transformed-predictors}}
+
+Again, the location is the mean river kilometers of all sampling events
+associated with each Station. The error bars are 95\% bootstrap
+confidence intervals.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(long\_data, }\FunctionTok{aes}\NormalTok{(mean\_riv\_km, Transformed\_Values)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ riv\_km, }\AttributeTok{y =}\NormalTok{ Transformed\_Values, }
+                 \AttributeTok{shape =} \FunctionTok{factor}\NormalTok{(Year), }\AttributeTok{color =}\NormalTok{ Season), }
+             \AttributeTok{alpha =} \FloatTok{0.25}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{stat\_summary}\NormalTok{(}\AttributeTok{geom =} \StringTok{\textquotesingle{}line\textquotesingle{}}\NormalTok{,}
+               \FunctionTok{aes}\NormalTok{(}\AttributeTok{color =}\NormalTok{ Season),}
+               \AttributeTok{fun=}\NormalTok{mean) }\SpecialCharTok{+}
+  \FunctionTok{stat\_summary}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{color =}\NormalTok{ Season), }
+               \AttributeTok{fun.data =}\NormalTok{ mean\_cl\_boot,  }\CommentTok{\# could also try mean\_se}
+               \AttributeTok{alpha =} \FloatTok{0.75}\NormalTok{) }\SpecialCharTok{+}
+
+  \FunctionTok{facet\_wrap}\NormalTok{(}\SpecialCharTok{\textasciitilde{}}\NormalTok{fancy\_p\_2, }
+             \AttributeTok{scales =} \StringTok{\textquotesingle{}free\_y\textquotesingle{}}\NormalTok{, }
+             \AttributeTok{nrow =} \DecValTok{2}\NormalTok{,}
+             \AttributeTok{strip.position =} \StringTok{\textquotesingle{}left\textquotesingle{}}\NormalTok{,}
+             \AttributeTok{labeller =}\NormalTok{ label\_parsed) }\SpecialCharTok{+}
+  \FunctionTok{ylab}\NormalTok{(}\StringTok{\textquotesingle{}\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{xlab}\NormalTok{(}\StringTok{\textquotesingle{}River Kilometer\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+
+  \FunctionTok{scale\_shape}\NormalTok{(}\AttributeTok{name =} \StringTok{\textquotesingle{}Year\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_color\_viridis\_d}\NormalTok{(}\AttributeTok{name =} \StringTok{\textquotesingle{}Season\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+
+  \FunctionTok{theme\_classic}\NormalTok{(}\AttributeTok{base\_size =} \FloatTok{9.5}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{strip.placement =} \StringTok{\textquotesingle{}outside\textquotesingle{}}\NormalTok{,}
+        \AttributeTok{strip.background =} \FunctionTok{element\_blank}\NormalTok{(),}
+        \AttributeTok{legend.position =} \FunctionTok{c}\NormalTok{(.}\DecValTok{85}\NormalTok{, .}\DecValTok{175}\NormalTok{), }
+        \AttributeTok{legend.box =} \StringTok{\textquotesingle{}horizontal\textquotesingle{}}\NormalTok{,}
+        \AttributeTok{legend.title.align =} \FloatTok{0.5}\NormalTok{,)}
+\CommentTok{\#\textgreater{} Warning: Removed 2 rows containing non{-}finite values (stat\_summary).}
+
+\CommentTok{\#\textgreater{} Warning: Removed 2 rows containing non{-}finite values (stat\_summary).}
+\CommentTok{\#\textgreater{} Warning: Removed 2 rows containing missing values (geom\_point).}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics{Graphics-for-Predictors-in-Estuaries_files/figure-latex/unnamed-chunk-10-1} \end{center}
+
+\hypertarget{all-smoothers}{%
+\subsubsection{All Smoothers}\label{all-smoothers}}
+
+This is a big, complex graphic, with many custom adjustments\ldots{}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  We have to split geom\_smooth() into parts so we can independently
+  control transparency of line and background. I am controlling the
+  smoother carefully, by specifying the nature of the smooth, here using
+  a ``GAM'' smoother, based on a thin plate spline, which tends to fit a
+  fairly conservative.
+\item
+  I show both the smoothing line and the 95\% confidence band around
+  each line. That feels like it is maybe too much.
+\item
+  There are a lot of ``custom'' features here, mostly regarding layout,
+  like whether to include alegend, what to call it, and how to label the
+  ``facets''.
+\end{enumerate}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(long\_data, }\FunctionTok{aes}\NormalTok{(riv\_km, Transformed\_Values, }\AttributeTok{color =}\NormalTok{ Season)) }\SpecialCharTok{+}
+
+  \CommentTok{\# First the error bands {-}{-} perhaps too much }
+  \FunctionTok{stat\_smooth}\NormalTok{(}\AttributeTok{geom =} \StringTok{\textquotesingle{}ribbon\textquotesingle{}}\NormalTok{,}
+              \AttributeTok{mapping=} \FunctionTok{aes}\NormalTok{(}\AttributeTok{fill =}\NormalTok{ Season),}
+              \AttributeTok{method =} \StringTok{\textquotesingle{}gam\textquotesingle{}}\NormalTok{,}
+              \AttributeTok{formula =}\NormalTok{ y }\SpecialCharTok{\textasciitilde{}} \FunctionTok{s}\NormalTok{(x, }\AttributeTok{bs =} \StringTok{"ts"}\NormalTok{),}
+              \AttributeTok{alpha =} \FloatTok{0.1}\NormalTok{,}
+              \AttributeTok{color =} \ConstantTok{NA}\NormalTok{) }\SpecialCharTok{+}
+  \CommentTok{\# Then the line smoother}
+  \FunctionTok{stat\_smooth}\NormalTok{(}\AttributeTok{geom =} \StringTok{\textquotesingle{}line\textquotesingle{}}\NormalTok{,}
+              \AttributeTok{method =} \StringTok{\textquotesingle{}gam\textquotesingle{}}\NormalTok{,}
+              \AttributeTok{formula =}\NormalTok{ y }\SpecialCharTok{\textasciitilde{}} \FunctionTok{s}\NormalTok{(x, }\AttributeTok{bs =} \StringTok{"ts"}\NormalTok{),}
+              \AttributeTok{alpha =} \FloatTok{0.3}\NormalTok{,}
+              \AttributeTok{size =}\NormalTok{ .}\DecValTok{75}\NormalTok{) }\SpecialCharTok{+}
+  \CommentTok{\# Add points ON TOP of the smoothers, to make them more visble}
+  \FunctionTok{geom\_point}\NormalTok{((}\FunctionTok{aes}\NormalTok{(}\AttributeTok{shape =} \FunctionTok{factor}\NormalTok{(Year)))) }\SpecialCharTok{+}
+
+  \FunctionTok{facet\_wrap}\NormalTok{(}\SpecialCharTok{\textasciitilde{}}\NormalTok{fancy\_p\_2, }
+             \AttributeTok{scales =} \StringTok{\textquotesingle{}free\_y\textquotesingle{}}\NormalTok{, }
+             \AttributeTok{nrow =} \DecValTok{2}\NormalTok{,}
+             \AttributeTok{strip.position =} \StringTok{\textquotesingle{}left\textquotesingle{}}\NormalTok{,  }\CommentTok{\# So they look like Y axis labels}
+             \AttributeTok{labeller =}\NormalTok{ label\_parsed) }\SpecialCharTok{+}  \CommentTok{\# To read formulae}
+  \FunctionTok{ylab}\NormalTok{(}\StringTok{\textquotesingle{}\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{xlab}\NormalTok{(}\StringTok{\textquotesingle{}River Kilometer\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  
+  \CommentTok{\# Now, control all of the scales used, setting names, colors, and labeling}
+  \FunctionTok{scale\_shape}\NormalTok{(}\AttributeTok{name =} \StringTok{\textquotesingle{}Year\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_color\_viridis\_d}\NormalTok{(}\AttributeTok{name =} \StringTok{\textquotesingle{}Season\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_fill\_viridis\_d}\NormalTok{(}\AttributeTok{name =} \StringTok{\textquotesingle{}SSeason\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  
+  \CommentTok{\# And chose where to show the legends}
+  \FunctionTok{guides}\NormalTok{(}\AttributeTok{color =} \FunctionTok{guide\_legend}\NormalTok{(}\AttributeTok{title.position =} \StringTok{"top"}\NormalTok{),}
+         \AttributeTok{fill =} \StringTok{\textquotesingle{}none\textquotesingle{}}\NormalTok{,}
+         \AttributeTok{shape =} \FunctionTok{guide\_legend}\NormalTok{(}\AttributeTok{title.position =} \StringTok{"top"}\NormalTok{)) }\SpecialCharTok{+}
+  
+  \CommentTok{\# Make the fonts slightly smaller than the default}
+  \FunctionTok{theme\_classic}\NormalTok{(}\AttributeTok{base\_size =} \FloatTok{9.5}\NormalTok{) }\SpecialCharTok{+}
+  
+  \CommentTok{\# and control various details}
+  \FunctionTok{theme}\NormalTok{( }\AttributeTok{strip.placement =} \StringTok{\textquotesingle{}outside\textquotesingle{}}\NormalTok{,         }\CommentTok{\# like axis label}
+         \AttributeTok{strip.background =} \FunctionTok{element\_blank}\NormalTok{(),  }\CommentTok{\# aesthetic choice}
+         \AttributeTok{legend.position =} \FunctionTok{c}\NormalTok{(.}\DecValTok{85}\NormalTok{, .}\DecValTok{175}\NormalTok{),      }\CommentTok{\# in the "blank" space}
+         \AttributeTok{legend.box =} \StringTok{\textquotesingle{}horizontal\textquotesingle{}}\NormalTok{,           }\CommentTok{\# legends side by side}
+         \AttributeTok{legend.title.align =} \FloatTok{0.5}\NormalTok{,            }\CommentTok{\# Centered over legend}
+         \AttributeTok{axis.text.x =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{hjust =} \SpecialCharTok{{-}}\NormalTok{.}\DecValTok{2}\NormalTok{))  }\CommentTok{\# Put labels right of ticks}
+\CommentTok{\#\textgreater{} Warning: Removed 2 rows containing non{-}finite values (stat\_smooth).}
+
+\CommentTok{\#\textgreater{} Warning: Removed 2 rows containing non{-}finite values (stat\_smooth).}
+\CommentTok{\#\textgreater{} Warning: Removed 2 rows containing missing values (geom\_point).}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics{Graphics-for-Predictors-in-Estuaries_files/figure-latex/unnamed-chunk-11-1} \end{center}
+
+\hypertarget{temporal-slices-at-each-station}{%
+\section{Temporal ``Slices'' at Each
+Station}\label{temporal-slices-at-each-station}}
+
+\hypertarget{initial-concept}{%
+\subsection{Initial Concept}\label{initial-concept}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(base\_data, }\FunctionTok{aes}\NormalTok{(DOY, Temp, }\AttributeTok{color =}\NormalTok{ Station)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{((}\FunctionTok{aes}\NormalTok{(}\AttributeTok{shape =} \FunctionTok{factor}\NormalTok{(Year)))) }\SpecialCharTok{+}
+  \FunctionTok{geom\_smooth}\NormalTok{(}\AttributeTok{method =} \StringTok{\textquotesingle{}gam\textquotesingle{}}\NormalTok{, }\AttributeTok{formula =}\NormalTok{ y }\SpecialCharTok{\textasciitilde{}} \FunctionTok{s}\NormalTok{(x, }\AttributeTok{bs =} \StringTok{"cs"}\NormalTok{), }\AttributeTok{se =} \ConstantTok{FALSE}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_shape}\NormalTok{(}\AttributeTok{name =} \StringTok{\textquotesingle{}Year\textquotesingle{}}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics{Graphics-for-Predictors-in-Estuaries_files/figure-latex/unnamed-chunk-12-1} \end{center}
+
+\hypertarget{all-temporal-slices}{%
+\subsubsection{All Temporal Slices}\label{all-temporal-slices}}
+
+To make this look good, I need to create a month by month axis for Days
+of the Year by Month.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{days }\OtherTok{=} \FunctionTok{c}\NormalTok{(}\DecValTok{31}\NormalTok{, }\DecValTok{28}\NormalTok{, }\DecValTok{31}\NormalTok{, }\DecValTok{30}\NormalTok{, }\DecValTok{31}\NormalTok{, }\DecValTok{30}\NormalTok{, }\DecValTok{31}\NormalTok{, }\DecValTok{31}\NormalTok{, }\DecValTok{30}\NormalTok{, }\DecValTok{31}\NormalTok{, }\DecValTok{30}\NormalTok{, }\DecValTok{31}\NormalTok{)}
+\NormalTok{cum\_days }\OtherTok{=} \FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{, }\FunctionTok{cumsum}\NormalTok{(days))[}\DecValTok{1}\SpecialCharTok{:}\DecValTok{12}\NormalTok{]}
+\FunctionTok{names}\NormalTok{(cum\_days) }\OtherTok{\textless{}{-}}\NormalTok{ month.abb}
+\NormalTok{cum\_days}
+\CommentTok{\#\textgreater{} Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec }
+\CommentTok{\#\textgreater{}   0  31  59  90 120 151 181 212 243 273 304 334}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(long\_data, }\FunctionTok{aes}\NormalTok{(DOY, Transformed\_Values, }\AttributeTok{color =}\NormalTok{ Station)) }\SpecialCharTok{+}
+
+  \CommentTok{\# First the error bands {-}{-} perhaps too much }
+  \FunctionTok{stat\_smooth}\NormalTok{(}\AttributeTok{geom =} \StringTok{\textquotesingle{}ribbon\textquotesingle{}}\NormalTok{,}
+              \AttributeTok{mapping=} \FunctionTok{aes}\NormalTok{(}\AttributeTok{fill =}\NormalTok{ Station),}
+              \AttributeTok{method =} \StringTok{\textquotesingle{}gam\textquotesingle{}}\NormalTok{,}
+              \AttributeTok{formula =}\NormalTok{ y }\SpecialCharTok{\textasciitilde{}} \FunctionTok{s}\NormalTok{(x, }\AttributeTok{bs =} \StringTok{"ts"}\NormalTok{),}
+              \AttributeTok{alpha =} \FloatTok{0.1}\NormalTok{,}
+              \AttributeTok{color =} \ConstantTok{NA}\NormalTok{) }\SpecialCharTok{+}
+  \CommentTok{\# Then the line smoother}
+  \FunctionTok{stat\_smooth}\NormalTok{(}\AttributeTok{geom =} \StringTok{\textquotesingle{}line\textquotesingle{}}\NormalTok{,}
+              \AttributeTok{method =} \StringTok{\textquotesingle{}gam\textquotesingle{}}\NormalTok{,}
+              \AttributeTok{formula =}\NormalTok{ y }\SpecialCharTok{\textasciitilde{}} \FunctionTok{s}\NormalTok{(x, }\AttributeTok{bs =} \StringTok{"ts"}\NormalTok{),}
+              \AttributeTok{alpha =} \FloatTok{0.3}\NormalTok{,}
+              \AttributeTok{size =}\NormalTok{ .}\DecValTok{75}\NormalTok{) }\SpecialCharTok{+}
+  \CommentTok{\# Add points ON TOP of the smoothers, to make them more visible}
+  \FunctionTok{geom\_point}\NormalTok{((}\FunctionTok{aes}\NormalTok{(}\AttributeTok{shape =} \FunctionTok{factor}\NormalTok{(Year)))) }\SpecialCharTok{+}
+
+  \FunctionTok{facet\_wrap}\NormalTok{(}\SpecialCharTok{\textasciitilde{}}\NormalTok{fancy\_p\_2, }
+             \AttributeTok{scales =} \StringTok{\textquotesingle{}free\_y\textquotesingle{}}\NormalTok{, }
+             \AttributeTok{nrow =} \DecValTok{2}\NormalTok{,}
+             \AttributeTok{strip.position =} \StringTok{\textquotesingle{}left\textquotesingle{}}\NormalTok{,}
+             \AttributeTok{labeller =}\NormalTok{ label\_parsed) }\SpecialCharTok{+}
+  \FunctionTok{ylab}\NormalTok{(}\StringTok{\textquotesingle{}\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{xlab}\NormalTok{(}\StringTok{\textquotesingle{}\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  
+  \CommentTok{\# Now, control all of the scales used, setting names, colors, and labeling}
+  \FunctionTok{scale\_shape}\NormalTok{(}\AttributeTok{name =} \StringTok{\textquotesingle{}Year\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_color\_viridis\_d}\NormalTok{(}\AttributeTok{name =} \StringTok{\textquotesingle{}Station\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}  \CommentTok{\#viridis palettes are colorblind friendly}
+  \FunctionTok{scale\_fill\_viridis\_d}\NormalTok{(}\AttributeTok{name =} \StringTok{\textquotesingle{}Station\textquotesingle{}}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_x\_continuous}\NormalTok{(}\AttributeTok{breaks =}\NormalTok{ cum\_days, }\AttributeTok{labels=}\NormalTok{month.abb) }\SpecialCharTok{+}
+  
+  \CommentTok{\# And chose legends, where to put names}
+  \CommentTok{\# you can do many other things with a call to \textasciigrave{}guides()\textasciigrave{}}
+  \FunctionTok{guides}\NormalTok{(}\AttributeTok{color =} \FunctionTok{guide\_legend}\NormalTok{(}\AttributeTok{title.position =} \StringTok{"top"}\NormalTok{),}
+         \AttributeTok{fill =} \StringTok{\textquotesingle{}none\textquotesingle{}}\NormalTok{,}
+         \AttributeTok{shape =} \FunctionTok{guide\_legend}\NormalTok{(}\AttributeTok{title.position =} \StringTok{"top"}\NormalTok{)) }\SpecialCharTok{+}
+  
+  \CommentTok{\# Make the fonts slightly smaller than the default}
+  \FunctionTok{theme\_classic}\NormalTok{(}\AttributeTok{base\_size =} \FloatTok{9.5}\NormalTok{) }\SpecialCharTok{+}
+  
+  \CommentTok{\# and control various details}
+  \FunctionTok{theme}\NormalTok{( }\AttributeTok{strip.placement =} \StringTok{\textquotesingle{}outside\textquotesingle{}}\NormalTok{,         }\CommentTok{\# Outside of axis, like axis label}
+         \AttributeTok{strip.background =} \FunctionTok{element\_blank}\NormalTok{(),  }\CommentTok{\# An aesthetic choice}
+         \AttributeTok{legend.position =} \FunctionTok{c}\NormalTok{(.}\DecValTok{85}\NormalTok{, .}\DecValTok{175}\NormalTok{),      }\CommentTok{\# Located in the "blank" area}
+         \AttributeTok{legend.box =} \StringTok{\textquotesingle{}horizontal\textquotesingle{}}\NormalTok{,           }\CommentTok{\# Place two legends side by side}
+         \AttributeTok{legend.title.align =} \FloatTok{0.5}\NormalTok{,            }\CommentTok{\# Centered over the legend}
+         \AttributeTok{axis.text.x =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{hjust =} \SpecialCharTok{{-}}\NormalTok{.}\DecValTok{25}\NormalTok{))  }\CommentTok{\#Put labels right of ticks.}
+\CommentTok{\#\textgreater{} Warning: Removed 2 rows containing non{-}finite values (stat\_smooth).}
+
+\CommentTok{\#\textgreater{} Warning: Removed 2 rows containing non{-}finite values (stat\_smooth).}
+\CommentTok{\#\textgreater{} Warning: Removed 2 rows containing missing values (geom\_point).}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics{Graphics-for-Predictors-in-Estuaries_files/figure-latex/unnamed-chunk-14-1} \end{center}
+
+\end{document}

@@ -1,0 +1,931 @@
+---
+title: "GAM Analysis of Data From Penobscot Plankton Study, Including Year"
+author: "Curtis C. Bohlen, Casco Bay Estuary Partnership"
+date: "1/28/2022"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    fig_width: 5
+    fig_height: 4
+---
+
+<img
+    src="https://www.cascobayestuary.org/wp-content/uploads/2014/04/logo_sm.jpg"
+    style="position:absolute;top:100px;right:50px;" />
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = 'center',
+                      fig.width = 5, fig.height = 4,
+                      collapse = TRUE, comment = "#>")
+```
+
+# Introduction
+This notebook is a follow up on my preliminary  effort to explore changes in
+data analysis.  I inadvertently forgot to include Year as a predictor variable 
+in the GAM models in my previous analysis.
+
+What I've done here is SLIGHTLY modify the analysis to add Year as a predictor.
+
+
+As before, this Notebook looks at:
+
+1.  Non-linear fits between zooplankton community metrics and possible 
+    environmental drivers, and 
+
+2. Examination of responses of one individual species to those same drivers.
+
+I've trimmed down the analysis workflow some, since I looked at the data 
+distributions, etc. previously, but the major steps remain the same.
+
+A critical problem that crops up here is that adding year results in some
+changes in conclusions when compared to analyses that leave Year out of the
+models. This is not entirely unexpected. The problem is that Years vary both in 
+plankton composition and abundance and in various predictors.  For example, some 
+years are warmer than others.  so, if you fit both "year" and "Temperature" in a 
+model, the model ends up partitioning variation between the two predictors. 
+
+This highlights some of the challenges the reviewers raised.  Throwing
+all the predictors at the problem can actually obscure, rather than clarify 
+relationships.  But I'm not sure what a better approach looks like.... 
+
+
+# Load Libraries
+```{r libraries, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(readxl)
+library(mgcv)      # for GAM models
+library(emmeans)   # For extracting useful "marginal" model summaries
+
+theme_set(theme_classic())
+```
+
+# Folder References
+I use folder references to allow limited indirection, thus making code from 
+GitHub repositories more likely to run "out of the box".
+
+```{r folder_refs}
+data_folder <- "Original_Data"
+```
+
+# Load Data
+```{r load_enviro_data}
+filename.in <- "penob.station.data EA 3.12.20.xlsx"
+file_path <- file.path(data_folder, filename.in)
+station_data <- read_excel(file_path, 
+                           sheet="Final", col_types = c("skip", "date", 
+                                              "numeric", "text", "numeric", 
+                                              "text", "skip", "skip", 
+                                              "skip", 
+                                              rep("numeric", 10),
+                                              "text", 
+                                              rep("numeric", 47),
+                                              "text",
+                                              rep("numeric", 12))) %>%
+  rename_with(~ gsub(" ", "_", .x)) %>%
+  rename_with(~ gsub("\\.", "_", .x)) %>%
+  rename_with(~ gsub("\\?", "", .x)) %>%
+  rename_with(~ gsub("%", "pct", .x)) %>%
+  rename_with(~ gsub("_Abundance", "", .x)) %>%
+  filter(! is.na(date))
+```
+
+Station names are arbitrary, and Erin previously expressed interest in renaming 
+them from Stations 2, 4, 5 and 8 to Stations 1,2,3,and 4.
+
+The `factor()` function by default sorts levels before assigning numeric codes,
+so a convenient way to replace the existing station codes with sequential
+numbers is to create a factor and extract the numeric indicator values with 
+`as.numeric()`.
+
+```{r change_station_names_2}
+station_data <- station_data %>%
+  mutate(station = factor(as.numeric(factor(station))))
+head(station_data)
+```
+
+### Subsetting to Desired Data Columns
+I base selection of predictor variables here on the ones used in the manuscript.
+
+```{r build_env_data}
+base_data <- station_data %>%
+  rename(Date = date, 
+         Station = station,
+         Year = year) %>%
+  select(-c(month, month_num)) %>%
+  mutate(Month = factor(as.numeric(format(Date, format = '%m')),
+                                                levels = 1:12, 
+                                                labels = month.abb),
+         DOY = as.numeric(format(Date,format = '%j')),
+         season = factor(season, levels = c('Spring', 'Summer', 'Fall')),
+         Yearf = factor(Year)) %>%
+  rename(Season = season,
+         Temp = ave_temp_c,
+         Sal = ave_sal_psu,
+         Turb = sur_turb,
+         AvgTurb = ave_turb_ntu,
+         DOsat = ave_DO_Saturation,
+         Chl = ave_chl_microgperl,
+         RH = Herring
+         ) %>%
+  select(Date, Station, Year, Yearf, Month, Season, DOY, riv_km, Temp, Sal, Turb, AvgTurb, 
+         DOsat, Chl, RH, 
+         combined_density,H, SEI,
+         Acartia, Balanus, Eurytemora, Polychaete, Pseudocal, Temora) %>%
+  arrange(Date, Station)
+head(base_data)
+```
+
+```{r}
+rm(station_data)
+```
+
+## "Long" Version of the Data
+```{r}
+long_data <- base_data %>%
+  select(-c(H:Temora,  AvgTurb, DOsat)) %>%
+  pivot_longer(-c(Date:riv_km, combined_density), 
+               names_to = 'Predictor', values_to = 'Values') %>%
+  mutate(Predictor = factor(Predictor, 
+                            levels = c('Temp', 'Sal', 'Turb',
+                                                  'Chl', 'RH'),
+                            labels = c("Temperature", "Salinity", "Turbidity",
+                                       "Chlorophyll", "River Herring")))
+```
+
+### Add Transformed Predictors
+```{r}
+new_values <- base_data %>%
+  select(-c(H:Temora,  AvgTurb, DOsat)) %>%
+  mutate(Turb = log(Turb),
+         Chl = log(Chl),
+         RH = log1p(RH)) %>%
+  pivot_longer(-c(Date:riv_km, combined_density), 
+               names_to = 'Predictor', values_to = 'Values_2') %>%
+  pull('Values_2')
+
+long_data <- long_data %>%
+  mutate(Transformed_Values = new_values)
+```
+
+# Modeling with GAMs
+Overall, I'm trying to mimic the linear models from the manuscript, only using
+GAMs instead of linear models.  
+
+In practice I've made three big changes:
+
+1. I transformed some predictor variables. This was to ease model fitting, but 
+   may not be the right call if the transformed variables make no sense, are
+   hard to explain to readers, or or if there are scientific reasons to not
+   look at transformed predictor variables.
+
+2. I have shifted to 'GAM' models  These allow fitting fairly arbitrary smooth
+   relationships between predictors and response variables.
+
+3. Since I'm using GAMs, I also explore alternatives to assumptions of 
+   normally distributed errors. I found that helpful, in a "belts and 
+   suspenders" kind of way and in some cases, I think an alternative model 
+   specification (other than Gaussian models), makes better sense.
+   
+Note, however, that we have data from only 60 samples.  Each (smoothed) 
+predictor could, in principal, enter the model with as many as nine degrees of 
+freedom.
+
+Model Term      | Degrees of Freedom
+----------------|--------------------
+Overall Mean   | 1
+Year            | 4
+Station         | 3
+Temperature     | Up to 9
+Salinity        | Up to 9
+Turbidity       | Up to 9
+Chlorophyll     | Up to 9
+River Herring   | Up to 9
+
+So, in principle, we could be fitting models up to 54 degrees of freedom, which
+would leave us with few degrees of freedom for error.  Luckily, in
+practice, most terms are not important, and they drop out of our models, or fit
+smoothed terms (thin plate splines) with much smaller effective degrees of 
+freedom.
+
+# Data Review by Year
+It's worth looking at how values vary year to year, since we are adding Year to
+the models....
+
+```{r fig.width = 7, fig.height = 5}
+long_data %>%
+  ggplot(aes(x = Year, y = Transformed_Values, color = Station)) +
+  geom_jitter(height = 0, width = .1) +
+  stat_summary(shape = 2, alpha = 0.5, fun.data = 'mean_se') +
+  stat_summary(geom = 'line', fun = 'mean') +
+  facet_wrap(~Predictor, scales = 'free_y')
+```
+    
+## General Modeling Logic and Considerations
+I'm building on the thinking in the other notebook ere, so skipping over basic 
+background on GAMS.
+
+### Repeated Measures / Mixed models? 
+We need to represent BOTH sample locations and Years in the model somehow.
+
+Each station was sampled repeatedly. Formally, this is  "repeated measures" 
+analysis. That can be modeled either as a hierarchical model (with Station as a 
+"Random Factor"), or by fitting Stations as a factor in the model.  We can't 
+leave station out of the model entirely.
+
+We face a similar choice regarding how to fit a "year" term, but with one more 
+choice:
+
+* Fit Year as a numerical predictor (a bad idea here, since we have few years, 
+  and no reason to think the relationship is linear, or even smooth) 
+  
+* Fit Year s a factor, and include it as a full "fixed effects" term in the 
+  model 
+
+* Fit Year as a "random factor" term in the model.
+
+The choice of strategy (fixed effects of random effects) should reflect a 
+*scientific*, not statistical judgment of what question we want to ask and how 
+best to evaluate causal hypotheses.
+
+Are we interested in evaluating or interpreting station to station differences 
+(yes!). Are we interested in interpreting Year to Year differences (ambiguous).
+
+Looking at this in terms of impact of dam removal on zooplankton, then the 
+year matters, as abundance of river herring in the system is increasing.  But
+are we really interested in Year, or is  Year functioning as a surrogate for a
+better predictor, say adult river herring returns? 
+
+So, ambiguous.  Looking at results, my tendency is to want to treat year as a 
+random factor, effectively treating it as uninteresting year to year variation
+that we expect to occur, but that we are uninterested in on its own.
+
+But that's not how this was handled in the manuscript, so I leave "Year" in
+as a factor.in 
+
+# Total Density Data 
+I'm going to go through a thorough analysis of alternative models for this data,
+mostly to demonstrate the logic I use under these circumstances. This is
+probably one of the most complicated response variables to model, because of
+it's form and distribution. Count data is **never** normally distributed. 
+Abundance data seldom is....
+
+## Data Review
+### Histogram
+```{r}
+ggplot(base_data, aes(combined_density)) +
+  geom_histogram(bins = 20)
+```
+
+Looking at observed values can only give a hint at appropriate model strategies,
+since the random component of a model should match the residuals, not the raw
+observations.  If predictors are skewed, the observations may be skewed even
+if errors are not.  This certainly does not look like a normal distribution, so
+we should consider it likely that something other than a standard least squares
+regression may do a better job.
+
+### Histogram of Log Transform
+A log transform helps, but it may make one very low abundance value have greater 
+impact on model fits than we would like. The low value may have n inordinate 
+impact on any model that fits logs.
+
+```{r}
+ggplot(base_data, aes(log(combined_density))) +
+  geom_histogram(bins = 20)
+```
+
+### The Low Abundance Sample
+Lets look at that low abundance sample...
+```{r}
+low_sample <- which(base_data$combined_density == 
+        min(base_data$combined_density, na.rm = TRUE))
+base_data[low_sample,]
+```
+
+It is one of our low salinity samples, so it will -- and probably should -- have 
+a big effect on our models at low salinity.  This reminds us that we have
+relatively little data from low salinity, spring samples, so no matter what the
+models are telling us, we don't have a lot of information to go on, and should
+not over interpret model output.
+
+## Basic Model Structure 
+### Selection of Predictors
+All the following models use the same predictor variables. These are based on
+the linear models reported in the manuscript.
+
+In particular, I did not try to fit any interaction terms between predictors,
+although from a scientific perspective some interactions -- like Salinity -
+Temperature  and Chlorophyll - Turbidity might be enlightening, in the context
+of estuary processes. (I'm not ready to go there yet, until we have had a 
+chance to think through the way to revise discussion of estuary processes in the 
+paper.)
+
+I have transformed several predictors to ensure predictors are ore evenly
+distributed across the model space.  This is for purely statistical reasons, and
+one could argue on scientific grounds against any of these choices.
+
+GAM models are built on a combination of zero or more "linear" predictors and
+one or more "smooth" predictors.  For all  of the models that follow, I use the 
+same suite of predictors, so the ONLY thing that differs is the model form.
+
+*  Linear Terms
+   * Station.  This fits a mean value for each Station, which adjusts for
+     conditions at that site.  This is not necessarily a very robust way of 
+     addressing location in the estuary, since I would not be surprised if those
+     differences themselves show seasonal patterns, especially based on the 
+     location of the turbidity maximum, but it's a reasonable starting point.
+   * Year.  I added Year as a factor. This means the model fits a separate 
+     parameter for each year, rather then, for example, trying to fit some sort 
+     of a trend.
+
+*  Smoothed Terms
+   * Temperature (untransformed)
+   * Salinity (untransformed) but as you will see, there are still problems
+   * log(Turbidity) 
+   * log(Chlorophyll)
+   * log(River Herring + 1 ).  I had to add one to deal with zero counts.
+
+The choice of transforms here DO alter the models.  They are not "neutral"
+choices.  For example, as the models reduce to linear terms, the terms are 
+linear in the transformed predictors, not linear in the underlying predictors.  
+It is appropriate to ask the scientific question of whether the untransformed 
+values would be better -- or scientifically more relevant -- predictors of 
+zooplankton than the transformed ones.  For example, predation intensity is
+presumably a function of total herring abundance, not log of herring abundance.
+
+#### Shrinkage Estimators
+Each of these models use "Shrinkage" estimates of the smoothing terms, which
+allow certain terms to be "shrunk" out of the model. It's an alternative to AIC
+based model selection. See the help file for `step.gam`, which explains why
+`mgcv` does not include a step procedure.  Shrinkage estimators play a similar
+role, by providing an automated way to evaluate the importance of each
+predictor (without just asking if they are statistically significant).
+
+Each smoothed term enters the GAM model through a smoothing function.  In it's 
+simplest form this is just `s(x)`.  To trigger a "shrinkage estimator", you 
+modify this slightly, by specifying the "basis function" on which the smooths
+are calculated.  Here I do that with `s(x, bs = 'ts').  The `bs = 'ts'` 
+specifies shrinkage estimates using "thin plate" splines.
+
+## Model Alternatives
+Count data is based on discrete probability distributions -- that is integer
+values only.  Your "Density" data is not integer valued, so the methods I 
+discussed on the call (negative binomial and quasipoisson GAMs) are not going to 
+be directly applicable.
+
+We are, however, looking at values (abundance) over the positive number line. So
+we should principally look at models that also assign zero probability (or
+negligibly small probability) to negative numbers.  
+
+Also, we expect our estimates of "density" to be pretty precise when density is
+low, but not if density is high.  If we only count 5 zooplankton, it's unlikely 
+that a replicate count would find 55, so an error of 50 is highly unlikely.
+On the other hand, if we count 3000, we might not be too surprised if a replicate 
+count had 3050. 
+
+Our best model choices should reflect those two features of our data.
+I considered several model strategies (see the other notebook for deeper 
+discussion).
+
+1.  A simple Gaussian GAM.  On first principals, a Gaussian model is likely to 
+    be a fairly poor model for these data, because any Gaussian model expects 
+    deviations (observed - predicted) on large counts to be similar to on small
+    counts. That's not reasonable for these data.  If all our densities were of 
+    similar magnitude and relatively high (compared to their standard errors) 
+    than we might get away with a Gaussian model. That's not the case here.
+
+2.  Model assuming normally distributed errors, but  with some sort of a
+    transform applied to the dependent variable. Common choices for transforms
+    include the log and square root transforms. These models naturally assume 
+    higher deviations for higher counts, only slightly so for the square root, 
+    but strongly so for the log transform. The log transform assumes deviations 
+    are proportional to zooplankton density, which feels like a reasonable 
+    assumption.  But there's that wonky outlier in the log transformed data....
+
+3.  Use a Gamma family GLM / GAM -- this implies standard error is roughly 
+    proportional to the mean. Again, not an unreasonable choice. A Gamma model
+    cannot handle a value of zero, but we don't have any zero densities. 
+    A gamma model can be fit with:
+    
+    *  an identity link
+    
+    *  a log link
+    
+    *  an inverse link (related to the "canonical link")
+    
+    It's not obvious to me which link function to use.  In general, the 
+    selection of link functions is determined by the functional form of response 
+    expected, usually on scientific grounds. The idnetity link yields an 
+    "additive" model, the log link, a "multiplicative model" and the inverse 
+    link some sort of a "rate" or "harmonic mean" model.
+
+On first principals, I like the transformed Gaussian and Gamma models. In
+general, it can be very hard to choose between a Gaussian model on log 
+transformed data and the Gamma model with a log link.
+
+## Testing Different Models
+### Square Root Transform
+This is an *ad hoc* transform that just often happens to work well with 
+abundance data.  No great theoretical justification....
+
+```{r}
+combined_density_gam_sr <- gam(sqrt(combined_density) ~ 
+                                 Station +
+                                 Yearf +
+                                 s(Temp, bs="ts") +
+                                 s(Sal, bs="ts") + 
+                                 s(log(Turb), bs="ts") + 
+                                 s(log(Chl), bs="ts") + 
+                                 s(log1p(RH),bs="ts"),
+                               data = base_data, family = 'gaussian')
+summary(combined_density_gam_sr)
+```
+
+Note that the linear predictors are important.  Years differ, and conditions at
+the Stations differ. 
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(combined_density_gam_sr)
+par(oldpar)
+```
+
+This model suggests:
+
+1. Low salinity sample has low abundance.  otherwise, salinity does not much 
+   matter, although there may be a remnant effect.
+   
+2. Abundance increases with Turbidity.
+
+3. Chlorophyll may also matter, but it is only marginally significant here.
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(combined_density_gam_sr)
+par(oldpar)
+```
+
+This model has excellent model diagnostics. Residuals are well distributed. No
+obvious model deficiencies.
+
+### Log transform (lognormal model)
+We next try a "lognormal" model. This is equivalent to assuming the underlying
+errors are drawn from a lognormal distribution.
+
+```{r}
+combined_density_gam_l <- gam(log(combined_density) ~ 
+                              Station + 
+                              Yearf +
+                              s(Temp, bs="ts") +
+                              s(Sal, bs="ts") + 
+                              s(log(Turb), bs="ts") + 
+                              s(log(Chl), bs="ts") + 
+                              s(log1p(RH),bs="ts"),
+                            data = base_data, family = 'gaussian')
+summary(combined_density_gam_l)
+```
+
+Note that this model identifies SALINITY as an important predictor, not 
+temperature.  It also fits more complex relationships even for some of the
+"not significant" terms, but the fact that those terms were not "shrunk" to
+nothing suggests there is useful predictive information from all of the
+predictors -- jut not very CLEAR information....
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(combined_density_gam_l)
+par(oldpar)
+```
+
+This model suggests:
+
+1.  Low salinity observation is different
+
+2.  Abundance increases with turbidity
+
+3.  Chlorophyll has some additional effect (linear in log of chlorophyll).
+
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(combined_density_gam_l)
+par(oldpar)
+```
+
+The residuals are slightly skewed the other way.... But the extreme low 
+fitted value is highly problematic. This just matches what we saw in
+the log-transformed histogram.
+
+Just the way regression models work, the GAM probably "had" to fit that point
+pretty closely, so it is going to have a pretty big effect on any model.
+That low abundance under low salinity conditions now has an outsized impact
+on the model fit, especially regarding the salinity predictor.
+
+### Gamma Model, Log Link
+GLMs and GAMs allow you to select many different link functions (although many 
+would make little sense).  I find selection of link functions confusing, so I
+like to stick with the "canonical" link for most GLMs. But that's not the only
+reasonable choice.  
+
+A Gamma GLM is often selected because it can model a wide range of positive 
+valued random variables, where variability increases with expected value.  So, 
+Gamma GLMs are are often run with identity or log links, in addition to the 
+(canonical) inverse link. 
+
+( I also looked at inverse and identify link gamma models, but after doing a 
+little more reading and thinking, I settled on this one....).
+
+```{r}
+combined_density_gam_g2 <- gam(combined_density ~
+                              Station + 
+                              Yearf +
+                              s(Temp, bs="ts") +
+                              s(Sal, bs="ts") + 
+                              s(log(Turb), bs="ts") + 
+                              s(log(Chl), bs="ts") + 
+                              s(log1p(RH),bs="ts"),
+                              data = base_data, family = Gamma(link = 'log'))
+summary(combined_density_gam_g2)
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(combined_density_gam_g2)
+par(oldpar)
+```
+
+So, 
+
+1. Low salinity samples are different.  After that the effect of salinity is 
+   relatively small.
+   
+2. Abundance increases with turbidity.
+
+3. Abundance increases with Chlorophyll
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(combined_density_gam_g2)
+par(oldpar)
+```
+
+This model has the best residual structure of any of the models we have looked 
+at, but it still has that one extreme low predicted value.... 
+
+
+## Conclusions from too many GAM Models
+
+All three models are reasonable...
+
+1.  Now that we added a "Year" term, the temperature signal is no longer 
+    identified as statistically meaningful, in any of the models.  Again, this
+    just highlights the problems of fitting models with correlated predictors.
+    
+2.  That one very low abundance, low salinity sample dominates the relationship
+    of abundance and salinity.  Without that low value, I doubt there would be 
+    much of a pattern to point to.  Nevertheless, that relationship is real,
+    if  based mostly on a single sample.
+    
+3.  Abundance increases strongly with turbidity.
+
+4.  In most models, there is also a positive association between zooplankton 
+    abundance and chlorophyll.
+
+# Diversity (Shannon Index)
+In my experience, **many**, but not all calculated indexes end up with error 
+distributions that can reasonably be modeled with normal distribution errors.
+I start out hoping that we can just use a regular Gaussian family model here.
+But the Shannon index is a strictly positive value, so we should consider models 
+that also restrict our predictions to positive values.
+
+## Histogram
+```{r}
+ggplot(base_data, aes(H)) +
+  geom_histogram(bins = 20)
+```
+
+NO obvious reason to think about transforms of these data will be needed, so we 
+forge on.  But I'm feeling nervous about the possibility that some predicted
+values may be negative....
+
+## Gaussian GAM, with Identity Link
+We are using "Shrinkage" estimates of the smoothing terms again, which allow
+certain terms to be "shrunk" out of the model
+
+```{r}
+shannon_gam <- gam(H ~ Station + 
+                     Yearf +
+                     s(Temp, bs="ts") +
+                     s(Sal, bs="ts") + 
+                     s(log(Turb), bs="ts") + 
+                     s(log(Chl), bs="ts") + 
+                     s(log1p(RH),bs="ts"),
+                   data = base_data, family = 'gaussian')
+summary(shannon_gam)
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(shannon_gam)
+par(oldpar)
+```
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(shannon_gam)
+par(oldpar)
+```
+Not a bad model from a model diagnostics point of view.
+
+## Gamma GAM with Inverse link
+```{r}
+shannon_gam_g <- gam(H ~ Station + 
+                     Yearf +
+                     s(Temp, bs="ts") +
+                     s(Sal, bs="ts") + 
+                     s(log(Turb), bs="ts") + 
+                     s(log(Chl), bs="ts") + 
+                     s(log1p(RH),bs="ts"),
+                   data = base_data, family =Gamma(link = 'inverse'))
+summary(shannon_gam_g)
+```
+The only significant relationship between diversity and any of the predictors 
+relates to salinity.  That also holds with several other models, including
+gamma models with log and identity links.
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(shannon_gam_g)
+par(oldpar)
+```
+
+Again, I suspect the salinity curve is influenced by a handful of low salinity
+samples.
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(shannon_gam_g)
+par(oldpar)
+```
+
+That's an OK model.  The biggest weakness is one extreme negative outlier.
+
+## Gamma Gam with Log Link
+
+```{r}
+shannon_gam_g2 <- gam(H ~ Station + 
+                     Yearf +
+                     s(Temp, bs="ts") +
+                     s(Sal, bs="ts") + 
+                     s(log(Turb), bs="ts") + 
+                     s(log(Chl), bs="ts") + 
+                     s(log1p(RH),bs="ts"),
+                   data = base_data, family = Gamma(link = 'log'))
+summary(shannon_gam_g2)
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(shannon_gam_g2)
+par(oldpar)
+```
+
+Fit without constraints, as here, this fits a wiggly relationship to chlorophyll, 
+which makes little sense to me.  If you constrain the model so that it won't
+fit such a wiggly relationship, (e.g. with `s(log(Chl), bs="ts", k = 5)`),
+CHlorophyll ceases to be important.
+
+The only consistently significant relationship between diversity and any of the 
+predictors relates to salinity.  Unfortunately, most of that pattern is again
+due to a handful of low salinity samples.
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(shannon_gam_g2)
+par(oldpar)
+```
+
+That extreme negative outlier is again the main weakness of this model.
+
+
+# Drop the Low Salinity Observations
+Let's just see what happens if we drop our handful of low salinity observations.
+Here we drop all samples with salinity below 5, which amounts to three samples
+from Station 1 in May of 2013, 2014, and 2017.  
+
+The goal here is to evaluate my guess that those low salinity observations are
+"really different" from the other samples, and thus dominate model fitting.
+
+```{r}
+low_sample <- which(base_data$Sal <= 5)
+base_data[low_sample,]
+smaller_data <- base_data[-low_sample,]
+```
+
+## Total Density
+### Log Transformed Model
+```{r}
+drop_density_gam_l <- gam(log(combined_density) ~ 
+                            Station + 
+                            Yearf +
+                            s(Temp, bs="ts", k = 4) +
+                            s(Sal, bs="ts", k = 4) + 
+                            s(log(Turb), bs="ts", k = 4) + 
+                            s(log(Chl), bs="ts", k = 4) + 
+                            s(log1p(RH),bs="ts", k = 4),
+                          data = smaller_data, family = 'gaussian')
+summary(drop_density_gam_l)
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(drop_density_gam_l)
+par(oldpar)
+```
+
+This model confirms that abundance increases with turbidity and chlorophyll, and 
+that salinity barely matters if you drop those low salinity observations.
+
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(drop_density_gam_l)
+par(oldpar)
+```
+
+That is an excellent model for the reduced data set.
+
+### Gamma Models
+```{r}
+drop_density_gam_g2 <- gam(combined_density ~ 
+                            Station + 
+                            Yearf +
+                            s(Temp, bs="ts") +
+                            s(Sal, bs="ts") + 
+                            s(log(Turb), bs="ts") + 
+                            s(log(Chl), bs="ts") + 
+                            s(log1p(RH),bs="ts"),
+                          data = smaller_data, family = Gamma(link = 'log'))
+summary(drop_density_gam_g2)
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(drop_density_gam_g2)
+par(oldpar)
+```
+
+The Gamma models models also  confirms that abundance increases with turbidity 
+and chlorophyll, while salinity only matters if you keep those low salinity 
+observations. Results are similar for identity, log, and inverse links, except 
+that the identity link finds a significant relationship with temperature.
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(drop_density_gam_g2)
+par(oldpar)
+```
+
+Another excellent model for the reduced data.
+
+## Diversity
+### Gamma Model with Log Link
+```{r}
+drop_shannon_gam <- gam(H ~ Station + 
+                          Yearf +
+                          s(Temp, bs="ts") +
+                          s(Sal, bs="ts") + 
+                          s(log(Turb), bs="ts") + 
+                          s(log(Chl), bs="ts") + 
+                          s(log1p(RH),bs="ts"),
+                        data = smaller_data, family = Gamma(link = 'log'))
+summary(drop_shannon_gam)
+```
+
+chlorophyll again emerges as an important predictor of diversity, but the
+relationship is "wiggly", and may be mostly driven by one high diversity, high
+chlorophyll sample.  I'd prefer a simpler smoothed fit, but exploring simpler
+smoothers (by specifying `k = 5`) yields a similar fit.  At `k = 4`, Chlorophyll
+does not stay in the model as an important term.
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(drop_shannon_gam)
+par(oldpar)
+```
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(shannon_gam)
+par(oldpar)
+```
+
+A reasonable model.
+
+# Example of a Single Species Model -- Acartia
+
+## Model Choices
+Our model alternatives are basically similar to what we had for the Total 
+Density models.
+
+Simple "count" data are sometimes modeled with a Poisson distribution (although
+that basically never works in ecology....).  A Poisson distribution has the 
+property that the variance equals the mean.
+
+While these data are no longer raw counts, they are closely tied to count data, 
+so we might expect our squared residuals to increase roughly linearly with 
+predictions as well.
+
+The Gamma distribution is a continuous-valued distribution with the property
+that the variance is roughly proportional to the mean.  That suggests it
+may make sense to start by trying a gamma GAM model.  Lognormal and inverse 
+Gaussian models could also be appropriate, depending on how heavy-tailed the 
+error distribution is, and how fast we believe the errors increase with predicted 
+values.
+
+The problem is, we can't use any of the continuous data distributions in GAMS 
+with zero values, at least relying on the canonical link functions, because
+(log(0) = -Inf; 1/0 = Inf, 1 / 0*0 = Inf).
+
+The easiest solution is to add some finite small quantity to the density data,
+and predict that. Here we predict Density + 1. An alternative would be
+to use a different link function.
+
+### Gamma Regression with Log Link
+We are using "Shrinkage" estimates of the smoothing terms again, which allow
+certain terms to be "shrunk" out of the model.
+```{r}
+acartia_gam_g <- gam(I(Acartia + 1) ~ Station + 
+                       Yearf +
+                       s(Temp, bs="ts") +
+                       s(Sal, bs="ts") + 
+                       s(log(Turb), bs="ts") + 
+                       s(log(Chl), bs="ts") + 
+                       s(log1p(RH),bs="ts"),
+                     data = base_data, family = Gamma(link = 'log'))
+summary(acartia_gam_g)
+
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(acartia_gam_g)
+par(oldpar)
+```
+
+1.  Acartia are least abundant in cooler / colder water (Seasonal?  position in 
+    estuary?)
+    
+2.  Acartia may be less abundant in the fresher water sections of 
+    the estuary (but there's that low salinity sample to worry about again!).
+
+3.  Acartia likes those high turbidity, high chlorophyll waters
+
+4.  Acartia abundance drops when river herring abundance is high.
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(acartia_gam_g)
+par(oldpar)
+```
+
+
+### Loglinear GAM
+```{r}
+acartia_gam_l <- gam(log1p(Acartia) ~ Station + 
+                       Yearf +
+                       s(Temp, bs="ts") +
+                       s(Sal, bs="ts") + 
+                       s(log(Turb), bs="ts") + 
+                       s(log(Chl), bs="ts") + 
+                       s(log1p(RH),bs="ts"),
+                     data = base_data, family = "gaussian")
+summary(acartia_gam_l)
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(acartia_gam_l)
+par(oldpar)
+```
+
+1.  Acartia are least abundant in cooler / colder water (seasonal?  position in 
+    estuary?)
+
+2.  Acartia don't like the freshwater end of things as much
+   
+3.  They kinda like high turbidity, high Chlorophyll waters, but here, the 
+    connection is not statistically robust.
+
+4. Acartia is less abundant when river herring are most abundant.
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(acartia_gam_l)
+par(oldpar)
+```
+
+That's actually a pretty good model for these data....
+
+
+

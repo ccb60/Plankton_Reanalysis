@@ -49,7 +49,6 @@ This highlights some of the challenges the reviewers raised.  Throwing
 all the predictors at the problem can actually obscure, rather than clarify 
 relationships.  But I'm not sure what a better approach looks like.... 
 
-
 # Load Libraries
 ```{r libraries, message = FALSE, warning = FALSE}
 library(tidyverse)
@@ -193,7 +192,7 @@ freedom.
 
 Model Term      | Degrees of Freedom
 ----------------|--------------------
-Overall Mean   | 1
+Overall Mean    | 1
 Year            | 4
 Station         | 3
 Temperature     | Up to 9
@@ -313,12 +312,9 @@ not over interpret model output.
 All the following models use the same predictor variables. These are based on
 the linear models reported in the manuscript.
 
-In particular, I did not try to fit any interaction terms between predictors,
-although from a scientific perspective some interactions -- like Salinity -
-Temperature  and Chlorophyll - Turbidity might be enlightening, in the context
-of estuary processes. (I'm not ready to go there yet, until we have had a 
-chance to think through the way to revise discussion of estuary processes in the 
-paper.)
+In particular, ISTILL did not try to fit any interaction terms between
+predictors, although from a scientific perspective some interactions  might be
+enlightening.
 
 I have transformed several predictors to ensure predictors are ore evenly
 distributed across the model space.  This is for purely statistical reasons, and
@@ -345,37 +341,16 @@ same suite of predictors, so the ONLY thing that differs is the model form.
    * log(Chlorophyll)
    * log(River Herring + 1 ).  I had to add one to deal with zero counts.
 
-The choice of transforms here DO alter the models.  They are not "neutral"
-choices.  For example, as the models reduce to linear terms, the terms are 
-linear in the transformed predictors, not linear in the underlying predictors.  
-It is appropriate to ask the scientific question of whether the untransformed 
-values would be better -- or scientifically more relevant -- predictors of 
-zooplankton than the transformed ones.  For example, predation intensity is
-presumably a function of total herring abundance, not log of herring abundance.
-
 #### Shrinkage Estimators
 Each of these models use "Shrinkage" estimates of the smoothing terms, which
 allow certain terms to be "shrunk" out of the model. It's an alternative to AIC
 based model selection. See the help file for `step.gam`, which explains why
-`mgcv` does not include a step procedure.  Shrinkage estimators play a similar
-role, by providing an automated way to evaluate the importance of each
-predictor (without just asking if they are statistically significant).
-
-Each smoothed term enters the GAM model through a smoothing function.  In it's 
-simplest form this is just `s(x)`.  To trigger a "shrinkage estimator", you 
-modify this slightly, by specifying the "basis function" on which the smooths
-are calculated.  Here I do that with `s(x, bs = 'ts').  The `bs = 'ts'` 
-specifies shrinkage estimates using "thin plate" splines.
+`mgcv` does not include a step procedure.
 
 ## Model Alternatives
-Count data is based on discrete probability distributions -- that is integer
-values only.  Your "Density" data is not integer valued, so the methods I 
-discussed on the call (negative binomial and quasipoisson GAMs) are not going to 
-be directly applicable.
-
-We are, however, looking at values (abundance) over the positive number line. So
-we should principally look at models that also assign zero probability (or
-negligibly small probability) to negative numbers.  
+We are looking at values (density) over the positive number line. So we should
+principally look at models that  assign zero probability (or negligibly small
+probability) to negative numbers.
 
 Also, we expect our estimates of "density" to be pretty precise when density is
 low, but not if density is high.  If we only count 5 zooplankton, it's unlikely 
@@ -415,60 +390,18 @@ discussion).
     
     It's not obvious to me which link function to use.  In general, the 
     selection of link functions is determined by the functional form of response 
-    expected, usually on scientific grounds. The idnetity link yields an 
+    expected, usually on scientific grounds. The identity link yields an 
     "additive" model, the log link, a "multiplicative model" and the inverse 
-    link some sort of a "rate" or "harmonic mean" model.
+    link some sort of a "rate" or "harmonic mean" model. Here, I've come to
+    believe the Log link model is probably most appropriate, and I focus on that
+    exclusively....
 
 On first principals, I like the transformed Gaussian and Gamma models. In
 general, it can be very hard to choose between a Gaussian model on log 
 transformed data and the Gamma model with a log link.
 
 ## Testing Different Models
-### Square Root Transform
-This is an *ad hoc* transform that just often happens to work well with 
-abundance data.  No great theoretical justification....
-
-```{r}
-combined_density_gam_sr <- gam(sqrt(combined_density) ~ 
-                                 Station +
-                                 Yearf +
-                                 s(Temp, bs="ts") +
-                                 s(Sal, bs="ts") + 
-                                 s(log(Turb), bs="ts") + 
-                                 s(log(Chl), bs="ts") + 
-                                 s(log1p(RH),bs="ts"),
-                               data = base_data, family = 'gaussian')
-summary(combined_density_gam_sr)
-```
-
-Note that the linear predictors are important.  Years differ, and conditions at
-the Stations differ. 
-
-```{r}
-oldpar <- par(mfrow = c(2,3))
-plot(combined_density_gam_sr)
-par(oldpar)
-```
-
-This model suggests:
-
-1. Low salinity sample has low abundance.  otherwise, salinity does not much 
-   matter, although there may be a remnant effect.
-   
-2. Abundance increases with Turbidity.
-
-3. Chlorophyll may also matter, but it is only marginally significant here.
-
-```{r fig.width = 5, fig.height = 5}
-oldpar <- par(mfrow = c(2,2))
-gam.check(combined_density_gam_sr)
-par(oldpar)
-```
-
-This model has excellent model diagnostics. Residuals are well distributed. No
-obvious model deficiencies.
-
-### Log transform (lognormal model)
+### Log Transform (lognormal model)
 We next try a "lognormal" model. This is equivalent to assuming the underlying
 errors are drawn from a lognormal distribution.
 
@@ -569,13 +502,10 @@ gam.check(combined_density_gam_g2)
 par(oldpar)
 ```
 
-This model has the best residual structure of any of the models we have looked 
-at, but it still has that one extreme low predicted value.... 
+This model has OK residual structure, but it still has that one extreme low 
+predicted value.... 
 
-
-## Conclusions from too many GAM Models
-
-All three models are reasonable...
+## Conclusions
 
 1.  Now that we added a "Year" term, the temperature signal is no longer 
     identified as statistically meaningful, in any of the models.  Again, this
@@ -583,8 +513,7 @@ All three models are reasonable...
     
 2.  That one very low abundance, low salinity sample dominates the relationship
     of abundance and salinity.  Without that low value, I doubt there would be 
-    much of a pattern to point to.  Nevertheless, that relationship is real,
-    if  based mostly on a single sample.
+    much of a pattern to point to.  Nevertheless, that relationship is real.
     
 3.  Abundance increases strongly with turbidity.
 
@@ -594,19 +523,11 @@ All three models are reasonable...
 # Diversity (Shannon Index)
 In my experience, **many**, but not all calculated indexes end up with error 
 distributions that can reasonably be modeled with normal distribution errors.
-I start out hoping that we can just use a regular Gaussian family model here.
+I start out hoping that we can just use a regular Gaussian  model here.
 But the Shannon index is a strictly positive value, so we should consider models 
-that also restrict our predictions to positive values.
+that also restrict our predictions to positive values.  Luckily, selection of
+the specific model has little effect on the results.
 
-## Histogram
-```{r}
-ggplot(base_data, aes(H)) +
-  geom_histogram(bins = 20)
-```
-
-NO obvious reason to think about transforms of these data will be needed, so we 
-forge on.  But I'm feeling nervous about the possibility that some predicted
-values may be negative....
 
 ## Gaussian GAM, with Identity Link
 We are using "Shrinkage" estimates of the smoothing terms again, which allow
@@ -635,43 +556,18 @@ oldpar <- par(mfrow = c(2,2))
 gam.check(shannon_gam)
 par(oldpar)
 ```
+
 Not a bad model from a model diagnostics point of view.
-
-## Gamma GAM with Inverse link
-```{r}
-shannon_gam_g <- gam(H ~ Station + 
-                     Yearf +
-                     s(Temp, bs="ts") +
-                     s(Sal, bs="ts") + 
-                     s(log(Turb), bs="ts") + 
-                     s(log(Chl), bs="ts") + 
-                     s(log1p(RH),bs="ts"),
-                   data = base_data, family =Gamma(link = 'inverse'))
-summary(shannon_gam_g)
-```
-The only significant relationship between diversity and any of the predictors 
-relates to salinity.  That also holds with several other models, including
-gamma models with log and identity links.
-
-```{r}
-oldpar <- par(mfrow = c(2,3))
-plot(shannon_gam_g)
-par(oldpar)
-```
-
-Again, I suspect the salinity curve is influenced by a handful of low salinity
-samples.
 
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
-gam.check(shannon_gam_g)
+gam.check(shannon_gam)
 par(oldpar)
 ```
 
 That's an OK model.  The biggest weakness is one extreme negative outlier.
 
 ## Gamma Gam with Log Link
-
 ```{r}
 shannon_gam_g2 <- gam(H ~ Station + 
                      Yearf +
@@ -693,7 +589,7 @@ par(oldpar)
 Fit without constraints, as here, this fits a wiggly relationship to chlorophyll, 
 which makes little sense to me.  If you constrain the model so that it won't
 fit such a wiggly relationship, (e.g. with `s(log(Chl), bs="ts", k = 5)`),
-CHlorophyll ceases to be important.
+Chlorophyll ceases to be important.
 
 The only consistently significant relationship between diversity and any of the 
 predictors relates to salinity.  Unfortunately, most of that pattern is again
@@ -705,8 +601,9 @@ gam.check(shannon_gam_g2)
 par(oldpar)
 ```
 
-That extreme negative outlier is again the main weakness of this model.
-
+That extreme negative outlier is the main weakness of this model. This model is
+perhaps slightly less trustworthy than the Gaussian model. Luckily, results 
+are consistent.
 
 # Drop the Low Salinity Observations
 Let's just see what happens if we drop our handful of low salinity observations.
@@ -755,7 +652,7 @@ par(oldpar)
 
 That is an excellent model for the reduced data set.
 
-### Gamma Models
+### Gamma Model, Log Link
 ```{r}
 drop_density_gam_g2 <- gam(combined_density ~ 
                             Station + 
@@ -778,7 +675,8 @@ par(oldpar)
 The Gamma models models also  confirms that abundance increases with turbidity 
 and chlorophyll, while salinity only matters if you keep those low salinity 
 observations. Results are similar for identity, log, and inverse links, except 
-that the identity link finds a significant relationship with temperature.
+that the identity link finds a significant relationship with temperature, which
+here is only marginally significant.
 
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
@@ -820,21 +718,10 @@ gam.check(shannon_gam)
 par(oldpar)
 ```
 
-A reasonable model.
-
 # Example of a Single Species Model -- Acartia
-
 ## Model Choices
 Our model alternatives are basically similar to what we had for the Total 
 Density models.
-
-Simple "count" data are sometimes modeled with a Poisson distribution (although
-that basically never works in ecology....).  A Poisson distribution has the 
-property that the variance equals the mean.
-
-While these data are no longer raw counts, they are closely tied to count data, 
-so we might expect our squared residuals to increase roughly linearly with 
-predictions as well.
 
 The Gamma distribution is a continuous-valued distribution with the property
 that the variance is roughly proportional to the mean.  That suggests it
@@ -850,46 +737,6 @@ with zero values, at least relying on the canonical link functions, because
 The easiest solution is to add some finite small quantity to the density data,
 and predict that. Here we predict Density + 1. An alternative would be
 to use a different link function.
-
-### Gamma Regression with Log Link
-We are using "Shrinkage" estimates of the smoothing terms again, which allow
-certain terms to be "shrunk" out of the model.
-```{r}
-acartia_gam_g <- gam(I(Acartia + 1) ~ Station + 
-                       Yearf +
-                       s(Temp, bs="ts") +
-                       s(Sal, bs="ts") + 
-                       s(log(Turb), bs="ts") + 
-                       s(log(Chl), bs="ts") + 
-                       s(log1p(RH),bs="ts"),
-                     data = base_data, family = Gamma(link = 'log'))
-summary(acartia_gam_g)
-
-```
-
-```{r}
-oldpar <- par(mfrow = c(2,3))
-plot(acartia_gam_g)
-par(oldpar)
-```
-
-1.  Acartia are least abundant in cooler / colder water (Seasonal?  position in 
-    estuary?)
-    
-2.  Acartia may be less abundant in the fresher water sections of 
-    the estuary (but there's that low salinity sample to worry about again!).
-
-3.  Acartia likes those high turbidity, high chlorophyll waters
-
-4.  Acartia abundance drops when river herring abundance is high.
-
-```{r fig.width = 5, fig.height = 5}
-oldpar <- par(mfrow = c(2,2))
-gam.check(acartia_gam_g)
-par(oldpar)
-```
-
-
 ### Loglinear GAM
 ```{r}
 acartia_gam_l <- gam(log1p(Acartia) ~ Station + 
@@ -926,6 +773,46 @@ par(oldpar)
 ```
 
 That's actually a pretty good model for these data....
+
+### Gamma Regression with Log Link
+We are using "Shrinkage" estimates of the smoothing terms again, which allow
+certain terms to be "shrunk" out of the model.
+
+```{r}
+acartia_gam_g <- gam(I(Acartia + 1) ~ Station + 
+                       Yearf +
+                       s(Temp, bs="ts") +
+                       s(Sal, bs="ts") + 
+                       s(log(Turb), bs="ts") + 
+                       s(log(Chl), bs="ts") + 
+                       s(log1p(RH),bs="ts"),
+                     data = base_data, family = Gamma(link = 'log'))
+summary(acartia_gam_g)
+
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(acartia_gam_g)
+par(oldpar)
+```
+
+1.  Acartia are least abundant in cooler / colder water (Seasonal?  position in 
+    estuary?)
+    
+2.  Acartia may be less abundant in the fresher water sections of 
+    the estuary (but there's that low salinity sample to worry about again!).
+
+3.  Acartia likes those high turbidity, high chlorophyll waters
+
+4.  Acartia abundance drops when river herring abundance is high.
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(acartia_gam_g)
+par(oldpar)
+```
+
 
 
 

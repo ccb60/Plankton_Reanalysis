@@ -100,8 +100,9 @@ base_data <- station_data %>%
   mutate(Month = factor(as.numeric(format(Date, format = '%m')),
                                                 levels = 1:12, 
                                                 labels = month.abb),
-         DOY = as.numeric(format(Date,format = '%j'))) %>%
-  mutate(season = factor(season, levels = c('Spring', 'Summer', 'Fall'))) %>%
+         DOY = as.numeric(format(Date,format = '%j')),
+         season = factor(season, levels = c('Spring', 'Summer', 'Fall')),
+         Yearf = factor(Year)) %>%
   rename(Season = season,
          Temp = ave_temp_c,
          Sal = ave_sal_psu,
@@ -111,7 +112,7 @@ base_data <- station_data %>%
          Chl = ave_chl_microgperl,
          RH = Herring
          ) %>%
-  select(Date, Station, Year, Month, Season, DOY, riv_km, Temp, Sal, Turb, AvgTurb, 
+  select(Date, Station, Year, Yearf, Month, Season, DOY, riv_km, Temp, Sal, Turb, AvgTurb, 
          DOsat, Chl, RH, 
          combined_density,H, SEI,
          Acartia, Balanus, Eurytemora, Polychaete, Pseudocal, Temora) %>%

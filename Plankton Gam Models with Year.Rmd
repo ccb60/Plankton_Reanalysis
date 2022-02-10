@@ -38,12 +38,12 @@ As before, this Notebook looks at:
 I've trimmed down the analysis workflow some, since I looked at the data 
 distributions, etc. previously, but the major steps remain the same.
 
-A critical problem that crops up here is that adding year results in some
-changes in conclusions when compared to analyses that leave Year out of the
-models. This is not entirely unexpected. The problem is that Years vary both in 
-plankton composition and abundance and in various predictors.  For example, some 
-years are warmer than others.  so, if you fit both "year" and "Temperature" in a 
-model, the model ends up partitioning variation between the two predictors. 
+Adding Year results in some changes in conclusions when compared to analyses
+that leave Year out of the models. This is not entirely unexpected. The problem
+is that Years vary both in plankton composition and abundance and in various
+predictors.  For example, some years are warmer than others.  So, if you fit
+both "year" and "Temperature" in a model, the model ends up partitioning
+variation between the two predictors.
 
 This highlights some of the challenges the reviewers raised.  Throwing
 all the predictors at the problem can actually obscure, rather than clarify 
@@ -60,9 +60,6 @@ theme_set(theme_classic())
 ```
 
 # Folder References
-I use folder references to allow limited indirection, thus making code from 
-GitHub repositories more likely to run "out of the box".
-
 ```{r folder_refs}
 data_folder <- "Original_Data"
 ```
@@ -140,6 +137,8 @@ rm(station_data)
 ```
 
 ## "Long" Version of the Data
+Here I only use this for graphic review or how predictors vary by year.
+
 ```{r}
 long_data <- base_data %>%
   select(-c(H:Temora,  AvgTurb, DOsat)) %>%
@@ -181,35 +180,13 @@ In practice I've made three big changes:
 2. I have shifted to 'GAM' models  These allow fitting fairly arbitrary smooth
    relationships between predictors and response variables.
 
-3. Since I'm using GAMs, I also explore alternatives to assumptions of 
-   normally distributed errors. I found that helpful, in a "belts and 
-   suspenders" kind of way and in some cases, I think an alternative model 
-   specification (other than Gaussian models), makes better sense.
-   
-Note, however, that we have data from only 60 samples.  Each (smoothed) 
-predictor could, in principal, enter the model with as many as nine degrees of 
-freedom.
-
-Model Term      | Degrees of Freedom
-----------------|--------------------
-Overall Mean    | 1
-Year            | 4
-Station         | 3
-Temperature     | Up to 9
-Salinity        | Up to 9
-Turbidity       | Up to 9
-Chlorophyll     | Up to 9
-River Herring   | Up to 9
-
-So, in principle, we could be fitting models up to 54 degrees of freedom, which
-would leave us with few degrees of freedom for error.  Luckily, in
-practice, most terms are not important, and they drop out of our models, or fit
-smoothed terms (thin plate splines) with much smaller effective degrees of 
-freedom.
+3. Since I'm using GAMs, I also explore alternatives to assumptions of normally
+   distributed errors. I think alternative model specifications (other than
+   Gaussian models), makes better sense.
 
 # Data Review by Year
 It's worth looking at how values vary year to year, since we are adding Year to
-the models....
+the models.
 
 ```{r fig.width = 7, fig.height = 5}
 long_data %>%
@@ -221,7 +198,7 @@ long_data %>%
 ```
     
 ## General Modeling Logic and Considerations
-I'm building on the thinking in the other notebook ere, so skipping over basic 
+I'm building on the thinking in the other notebook here, so I'm skipping over 
 background on GAMS.
 
 ### Repeated Measures / Mixed models? 
@@ -255,20 +232,14 @@ year matters, as abundance of river herring in the system is increasing.  But
 are we really interested in Year, or is  Year functioning as a surrogate for a
 better predictor, say adult river herring returns? 
 
-So, ambiguous.  Looking at results, my tendency is to want to treat year as a 
-random factor, effectively treating it as uninteresting year to year variation
-that we expect to occur, but that we are uninterested in on its own.
+My tendency is to want to treat year as a random factor, effectively treating 
+it as uninteresting year to year variation that we expect to occur, but that we 
+are uninterested in on its own.
 
 But that's not how this was handled in the manuscript, so I leave "Year" in
-as a factor.in 
+as a factor.
 
 # Total Density Data 
-I'm going to go through a thorough analysis of alternative models for this data,
-mostly to demonstrate the logic I use under these circumstances. This is
-probably one of the most complicated response variables to model, because of
-it's form and distribution. Count data is **never** normally distributed. 
-Abundance data seldom is....
-
 ## Data Review
 ### Histogram
 ```{r}
@@ -349,7 +320,7 @@ based model selection. See the help file for `step.gam`, which explains why
 
 ## Model Alternatives
 We are looking at values (density) over the positive number line. So we should
-principally look at models that  assign zero probability (or negligibly small
+principally look at models that assign zero probability (or negligibly small
 probability) to negative numbers.
 
 Also, we expect our estimates of "density" to be pretty precise when density is
@@ -398,7 +369,8 @@ discussion).
 
 On first principals, I like the transformed Gaussian and Gamma models. In
 general, it can be very hard to choose between a Gaussian model on log 
-transformed data and the Gamma model with a log link.
+transformed data and the Gamma model with a log link.  They are close
+cousins.
 
 ## Testing Different Models
 ### Log Transform (lognormal model)

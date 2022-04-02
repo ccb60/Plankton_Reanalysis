@@ -38,6 +38,5 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-# Omit Source Code, so we don't share what is not ours.
-/Original_Code/
+# Omit Drafts.
 /Drafts/

@@ -1,0 +1,624 @@
+---
+title: How Should We  Decide Whether to use Gamma or Lognormal Models?"
+author: "Curtis C. Bohlen, Casco Bay Estuary Partnership"
+date: "2/11/2022"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    fig_width: 5
+    fig_height: 4
+---
+
+<img
+    src="https://www.cascobayestuary.org/wp-content/uploads/2014/04/logo_sm.jpg"
+    style="position:absolute;top:100px;right:50px;" />
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = 'center',
+                      fig.width = 5, fig.height = 4,
+                      collapse = TRUE, comment = "#>")
+```
+
+# Introduction
+This notebook is a another follow up on previous analyses.  Here I focus on
+whether to use lognormal (Gaussian models on log transformed data) or Gamma  
+models with log link.
+
+The two models are close cousins, and so it is not surprising that results are
+often (but not always) similar.  There's actually a fairly large literature on 
+this question.
+
+While I'm at it, I model fitting GAM models with random factors.
+
+# Load Libraries
+```{r libraries, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(readxl)
+library(mgcv)      # for GAM models
+library(emmeans)   # For extracting useful "marginal" model summaries
+
+theme_set(theme_classic())
+```
+
+# Folder References
+```{r folder_refs}
+data_folder <- "Original_Data"
+```
+
+# Load Data
+```{r load_enviro_data}
+filename.in <- "penob.station.data EA 3.12.20.xlsx"
+file_path <- file.path(data_folder, filename.in)
+station_data <- read_excel(file_path, 
+                           sheet="Final", col_types = c("skip", "date", 
+                                              "numeric", "text", "numeric", 
+                                              "text", "skip", "skip", 
+                                              "skip", 
+                                              rep("numeric", 10),
+                                              "text", 
+                                              rep("numeric", 47),
+                                              "text",
+                                              rep("numeric", 12))) %>%
+  rename_with(~ gsub(" ", "_", .x)) %>%
+  rename_with(~ gsub("\\.", "_", .x)) %>%
+  rename_with(~ gsub("\\?", "", .x)) %>%
+  rename_with(~ gsub("%", "pct", .x)) %>%
+  rename_with(~ gsub("_Abundance", "", .x)) %>%
+  filter(! is.na(date))
+```
+
+Station names are arbitrary, and Erin previously expressed interest in renaming 
+them from Stations 2, 4, 5 and 8 to Stations 1,2,3,and 4.
+
+The `factor()` function by default sorts levels before assigning numeric codes,
+so a convenient way to replace the existing station codes with sequential
+numbers is to create a factor and extract the numeric indicator values with 
+`as.numeric()`.
+
+```{r change_station_names_2}
+station_data <- station_data %>%
+  mutate(station = factor(as.numeric(factor(station))))
+head(station_data)
+```
+
+### Subsetting to Desired Data Columns
+I base selection of predictor variables here on the ones used in the manuscript.
+
+```{r build_env_data}
+base_data <- station_data %>%
+  rename(Date = date, 
+         Station = station,
+         Year = year) %>%
+  select(-c(month, month_num)) %>%
+  mutate(Month = factor(as.numeric(format(Date, format = '%m')),
+                                                levels = 1:12, 
+                                                labels = month.abb),
+         DOY = as.numeric(format(Date,format = '%j')),
+         season = factor(season, levels = c('Spring', 'Summer', 'Fall')),
+         Yearf = factor(Year)) %>%
+  rename(Season = season,
+         Temp = ave_temp_c,
+         Sal = ave_sal_psu,
+         Turb = sur_turb,
+         AvgTurb = ave_turb_ntu,
+         DOsat = ave_DO_Saturation,
+         Chl = ave_chl_microgperl,
+         RH = Herring
+         ) %>%
+  select(Date, Station, Year, Yearf, Month, Season, DOY, riv_km, Temp, Sal, Turb, AvgTurb, 
+         DOsat, Chl, RH, 
+         combined_density,H, SEI,
+         Acartia, Balanus, Eurytemora, Polychaete, Pseudocal, Temora) %>%
+  arrange(Date, Station)
+head(base_data)
+```
+
+```{r}
+rm(station_data)
+```
+
+# Modeling with GAMs
+I'm trying to mimic the linear models from the manuscript, only using
+GAMs instead of linear models.  
+
+I've made three big changes:
+
+1. I transformed some predictor variables. This was to ease model fitting, but 
+   may not be the right call if the transformed variables make no sense, are
+   hard to explain to readers, or or if there are scientific reasons to not
+   look at transformed predictor variables.
+
+2. I have shifted to 'GAM' models  These allow fitting fairly arbitrary smooth
+   relationships between predictors and response variables.
+
+3. Since I'm using GAMs, I also explore alternatives to assumptions of normally
+   distributed errors. Here I only look at the gamma GAM with a log link.
+
+## Repeated Measures / Mixed models? 
+I'm running `Year` as a random effect, but `Station` as a fixed effect. The
+reason is that I think we DO want to be able to interpret differences in
+abundance by location in the estuary.  Station is one measure of location.  We
+have no real interest in interpreting year to year variation, only accounting
+for it in the models. I've run these models including Station as a random factor 
+too, and it makes little difference to the other conclusions of any of these
+models. 
+
+I poked at fitting  random effects using both `gam()` and `gamm()` functions.
+For "simple" random effects, either one can handle it, but the R output is
+different.  I prefer  `gam()` , largely because the R output is simpler.  It's
+worth pointing out that I could not get `gamm()` to fit quite the same
+statistical model as the one I fit with `gam()`.  Results are similar, but not
+quantitatively identical.
+
+For a quick intro to random effects models using `gam()`, here:
+https://fromthebottomoftheheap.net/2021/02/02/random-effects-in-gams/
+But that discussion is mostly aimed at estimating variance components in the 
+context of (linear) GLM models.
+
+# Total Density Data
+## Selection of Predictors
+All the following models use the same predictor variables. These are based on
+the linear models in the manuscript. I STILL have not tried to fit any 
+interaction terms between predictors.
+
+I have transformed several predictors to ensure predictors are more evenly
+distributed across the model space.  This is for purely statistical reasons, and
+one could argue on scientific grounds against any of these choices.
+
+*  Linear (Fixed) Effects
+   * Station. This will fit three parameters, to distinguish between the four
+   Stations.  By default, the contrasts used in the model fitting compare each 
+   of stations 2,3, and 4 against station 1, which is fit as the model 
+   intercept. This convention can be altered by (1) specifying a model without
+   an intercept (`0 + Station + ...`) or by specifying a different contrast
+   for the Stations.  I don't bother, principally because I am going to look
+   at marginal means (predictions) by station (rather than the model
+   coefficients themselves), and the marginal means won't be affected by how
+   Station is fit.
+   
+*  Random Factor
+   * Year.  I added Year as a random factor. This is fit in `gam()` as a
+   "smooth" term with `s(Station, bs = 're')`.  The `bs = 're'` specifies a
+   "random effect".  I don't understand the mathematical details.  In `gamm()`,
+   this is fit as a conventional random factor, using 
+   `random = list(Yearf = ~ 1)`.
+
+*  Smoothed Terms
+   * Temperature (untransformed)
+   * Salinity (untransformed)
+   * log(Turbidity) 
+   * log(Chlorophyll)
+   * log(River Herring + 1 ).  I had to add one to deal with zero counts.
+
+## Model Alternatives
+We are looking at values (density) over the positive number line. So we should
+principally look at models that assign zero probability (or negligibly small
+probability) to negative numbers. Also, we expect our estimates of "density" to 
+be pretty precise when density is low, but not if density is high. 
+
+Our best model choices should reflect those two features of our data.
+I considered several model strategies (see the other notebooks for more 
+discussion).  Here I focus on comparing two types of models.
+
+1.  Model assuming normally distributed errors, on log transformed data.
+
+2.  A Gamma family GAM with a Log link. 
+
+## Testing Different Models
+### Log Transform (lognormal model)
+I'll fit this both with `gam()` and with `gamm()`, to provide code examples.
+
+#### Fitting with `gam()`
+```{r}
+combined_density_gam_l <- gam(log(combined_density) ~ 
+                              Station + 
+                              s(Yearf, bs = 're') +
+                              s(Temp, bs="ts") +
+                              s(Sal, bs="ts") + 
+                              s(log(Turb), bs="ts") + 
+                              s(log(Chl), bs="ts") + 
+                              s(log1p(RH),bs="ts"),
+                            data = base_data, family = 'gaussian')
+summary(combined_density_gam_l)
+```
+
+The random effect is statistically significant, meaning we probably should not 
+drop it from the model.  But we knew that already...
+
+Otherwise, we see Salinity, Turbidity, and Chlorophyll are "Significant" 
+predictors.
+
+Also, I finally noticed that two observations have missing values for River 
+Herring, so those observations are dropped from the analysis, giving us n = 58.
+One of those is a low salinity sample.
+
+```{r fig.width = 7}
+oldpar <- par(mfrow = c(2,3))
+plot(combined_density_gam_l)
+par(oldpar)
+```
+
+This model suggests:
+
+1.  Low salinity observations are different
+
+2.  Abundance increases with (log of) turbidity
+
+3.  Abundance increases with (log of) chlorophyll.
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(combined_density_gam_l)
+par(oldpar)
+```
+
+The extreme low fitted value is still a problem, but that's one of the low 
+salinity observations.
+
+#### Fitting with `gamm()`
+The random effects have to be specified as a list of one-sided formulae.  I find
+the output of `gamm()` much more confusing, so if I can get away with it, I'm 
+likely to want to stick to `gam()`....
+
+```{r}
+combined_density_gamm_l <- gamm(log(combined_density) ~ 
+                              Station + 
+                              s(Temp, bs="ts") +
+                              s(Sal, bs="ts") + 
+                              s(log(Turb), bs="ts") + 
+                              s(log(Chl), bs="ts") + 
+                              s(log1p(RH),bs="ts"),
+                              random = list(Yearf = ~ 1),
+                            data = base_data, family = 'gaussian')
+```
+
+
+The object returned by `gamm()` combines both an `lme` object and a `gam`
+object. 
+```{r}
+summary(combined_density_gamm_l)
+```
+
+Generally, you need to refer to one or the other component explicitly to make
+sense of the analysis. I mostly focus on the `$gam` component.  I think the
+`$lme` component is mostly  hidden fitting machinery.  I have never been able to
+make much sense of the `$lme` component, although there are several references
+that provide details of how to pull out important model diagnostics.
+
+```{r}
+summary(combined_density_gamm_l$gam)
+```
+
+Results appear similar, but not identical to those from the prior model.  I
+believe the difference is due to how the two functions incorporate (or fail to
+incorporate) levels of the random factor (here, the year). But I'm not 100%
+sure....  The two functions use different fitting algorithms, so it is also
+possible that they converge on slightly different solutions.
+
+You also have to specify that you want to plot the `gam` component of the object 
+returned by `gamm()`.
+
+```{r fig.width = 8}
+oldpar <- par(mfrow = c(2,3))
+plot(combined_density_gamm_l$gam)
+par(oldpar)
+```
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(combined_density_gamm_l$gam)
+par(oldpar)
+```
+
+### Gamma Model, Log Link
+A Gamma GLM is often selected because it can model a wide range of positive 
+valued random variables, where variability increases with expected value. After
+doing a little more reading and thinking, I settled on the log link as probably 
+making the most sense here.
+
+```{r}
+combined_density_gam_g <- gam(log(combined_density) ~ 
+                              Station + 
+                              s(Yearf, bs = 're') +
+                              s(Temp, bs="ts") +
+                              s(Sal, bs="ts") + 
+                              s(log(Turb), bs="ts") + 
+                              s(log(Chl), bs="ts") + 
+                              s(log1p(RH),bs="ts"),
+                            data = base_data, family = Gamma(link = 'log'))
+summary(combined_density_gam_g)
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(combined_density_gam_g)
+par(oldpar)
+```
+
+So, 
+
+1. Low salinity samples are different.  After that the effect of salinity is 
+   relatively small.
+   
+2. Abundance increases with turbidity.
+
+3. Abundance increases with Chlorophyll
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(combined_density_gam_g)
+par(oldpar)
+```
+
+This model has OK residual structure, except for that one extreme low 
+predicted value.  As we will see below, that one weird sample balloons the 
+confidence intervals on this model a lot more than on the lognormal model.
+
+## Conclusions
+
+1.  One very low abundance, low salinity sample dominates the relationship
+    of abundance and salinity.  Without that low value, I doubt there would be 
+    much of a pattern to point to.  Nevertheless, that relationship is real.
+    
+3.  Abundance increases strongly with turbidity.
+
+4.  In most models, there is also a positive association between zooplankton 
+    abundance and chlorophyll.
+
+# Is there a Rational Way to decide which model works "Better"?  
+Lets compare graphic output, showing prediction lines, 95% confidence intervals
+for those predictions, and the raw data.
+
+We'll follow the convention that the log linear model is in blue, and the 
+gamma a model is in yellow.
+
+## Salinity
+```{r}
+
+emm_sal_l <- as.data.frame(emmeans(combined_density_gam_l, "Sal", 
+                    at = list(Sal = seq(0, 30, 0.5)), 
+                    cov.reduce = median,
+                    type = 'response'))
+
+emm_sal_g <- as.data.frame(emmeans(combined_density_gam_g, "Sal", 
+                    at = list(Sal = seq(0, 30, 0.5)), 
+                    cov.reduce = median,
+                    type = 'response'))
+```
+
+
+```{r}
+ggplot() +
+  geom_ribbon(data = emm_sal_l, mapping = aes(x = Sal, 
+                                              ymin = lower.CL, 
+                                              ymax = upper.CL), 
+              fill = 'blue', alpha = 0.25) +
+  geom_ribbon(data = emm_sal_g, mapping = aes(x = Sal, 
+                                              ymin = lower.CL, 
+                                              ymax = upper.CL), 
+              fill = 'yellow', alpha = 0.25) +
+  geom_line(data = emm_sal_l, mapping = aes(x = Sal, y = response), 
+            color = 'blue') +
+  geom_line(data = emm_sal_g, mapping = aes(x = Sal, y = response),
+            color = 'yellow') +
+  geom_point(data = base_data, mapping = aes(x = Sal, y = combined_density))
+```
+
+The two models provide statistically similar predictions.  Here, the log-linear 
+model fit has both fewer wiggles and a narrower error band.
+
+
+### Turbidity
+```{r}
+emm_turb_l <- as.data.frame(emmeans(combined_density_gam_l, "Turb", 
+                    at = list(Turb = seq(2, 14, 0.25)), 
+                    cov.reduce = median,
+                    type = 'response'))
+
+emm_turb_g <- as.data.frame(emmeans(combined_density_gam_g, "Turb", 
+                    at = list(Turb = seq(2, 14, 0.25)), 
+                    cov.reduce = median,
+                    type = 'response'))
+```
+
+```{r}
+ggplot() +
+  geom_ribbon(data = emm_turb_l, mapping = aes(x = Turb, 
+                                              ymin = lower.CL, 
+                                              ymax = upper.CL), 
+              fill = 'blue', alpha = 0.25) +
+  geom_ribbon(data = emm_turb_g, mapping = aes(x = Turb, 
+                                              ymin = lower.CL, 
+                                              ymax = upper.CL), 
+              fill = 'yellow', alpha = 0.25) +
+  geom_line(data = emm_turb_l, mapping = aes(x = Turb, y = response), 
+            color = 'blue') +
+  geom_line(data = emm_turb_g, mapping = aes(x = Turb, y = response),
+            color = 'yellow') +
+  geom_point(data = base_data, mapping = aes(x = Turb, y = combined_density))
+```
+
+Again, the log transformed model has narrower error bands.  That's not too
+surprising, since we are looking at the same models as we just examined.  We are
+just looking at a different marginal view. (Remember, the model was fit on
+transformed Turbidity data, and `emmeans` handles that correctly, so we get the
+slightly curved prediction lines here.)
+
+## Chlorophyll
+```{r}
+emm_chl_l <- as.data.frame(emmeans(combined_density_gam_l, "Chl", 
+                    at = list(Chl = seq(1, 18, 0.5)), 
+                    cov.reduce = median,
+                    type = 'response'))
+
+emm_chl_g <- as.data.frame(emmeans(combined_density_gam_g, "Chl", 
+                    at = list(Chl = seq(1, 18, 0.5)), 
+                    cov.reduce = median,
+                    type = 'response'))
+```
+
+```{r}
+ggplot() +
+  geom_ribbon(data = emm_chl_l, mapping = aes(x = Chl, 
+                                              ymin = lower.CL, 
+                                              ymax = upper.CL), 
+              fill = 'blue', alpha = 0.25) +
+  geom_ribbon(data = emm_chl_g, mapping = aes(x = Chl, 
+                                              ymin = lower.CL, 
+                                              ymax = upper.CL), 
+              fill = 'yellow', alpha = 0.25) +
+  geom_line(data = emm_chl_l, mapping = aes(x = Chl, y = response), 
+            color = 'blue') +
+  geom_line(data = emm_chl_g, mapping = aes(x = Chl, y = response),
+            color = 'yellow') +
+  geom_point(data = base_data, mapping = aes(x = Chl, y = combined_density))
+```
+
+That points to the impact of that one outlier....  We have very wide error 
+bands out by that one sample, especially for the Gamma model.  Again, the 
+error bands for the log transformed model are preferable.
+
+# Drop the Low Salinity Observations
+Let's see what happens if we drop our handful of low salinity observations.
+Here we drop all samples with salinity below 5, which amounts to three samples
+from Station 1 in May of 2013, 2014, and 2017.  
+
+The goal here is to evaluate my guess that those low salinity observations
+dominate model fitting.
+
+```{r}
+low_sample <- which(base_data$Sal <= 5)
+base_data[low_sample,]
+smaller_data <- base_data[-low_sample,]
+```
+
+## Total Density
+### Log Transformed Model
+```{r}
+drop_density_gam_l <- gam(log(combined_density) ~ 
+                            Station + 
+                            s(Yearf, bs = 're') +
+                            s(Temp, bs="ts") +
+                            s(Sal, bs="ts") + 
+                            s(log(Turb), bs="ts") + 
+                            s(log(Chl), bs="ts") + 
+                            s(log1p(RH),bs="ts"),
+                          data = smaller_data, family = 'gaussian')
+summary(drop_density_gam_l)
+```
+
+### Gamma Model, Log Link
+```{r}
+drop_density_gam_g <- gam(combined_density ~ 
+                            Station + 
+                            s(Yearf, bs = 're') +
+                            s(Temp, bs="ts") +
+                            s(Sal, bs="ts") + 
+                            s(log(Turb), bs="ts") + 
+                            s(log(Chl), bs="ts") + 
+                            s(log1p(RH),bs="ts"),
+                          data = smaller_data, family = Gamma(link = 'log'))
+summary(drop_density_gam_g)
+```
+
+```{r}
+emm_sal_l <- as.data.frame(emmeans(drop_density_gam_l, "Sal", 
+                    at = list(Sal = seq(10, 30, 0.5)), 
+                    cov.reduce = median,
+                    type = 'response'))
+
+emm_sal_g <- as.data.frame(emmeans(drop_density_gam_g, "Sal", 
+                    at = list(Sal = seq(10, 30, 0.5)), 
+                    cov.reduce = median,
+                    type = 'response'))
+```
+
+
+```{r}
+ggplot() +
+  geom_ribbon(data = emm_sal_l, mapping = aes(x = Sal, 
+                                              ymin = lower.CL, 
+                                              ymax = upper.CL), 
+              fill = 'blue', alpha = 0.25) +
+  geom_ribbon(data = emm_sal_g, mapping = aes(x = Sal, 
+                                              ymin = lower.CL, 
+                                              ymax = upper.CL), 
+              fill = 'yellow', alpha = 0.25) +
+  geom_line(data = emm_sal_l, mapping = aes(x = Sal, y = response), 
+            color = 'blue') +
+  geom_line(data = emm_sal_g, mapping = aes(x = Sal, y = response),
+            color = 'yellow') +
+  geom_point(data = smaller_data, mapping = aes(x = Sal, y = combined_density))
+```
+
+Here, the error bands are nearly identical.  Apparently, the gamma model was 
+much more strongly influenced by those extreme values.
+
+
+### Turbidity
+```{r}
+emm_turb_l <- as.data.frame(emmeans(drop_density_gam_l, "Turb", 
+                    at = list(Turb = seq(2, 14, 0.25)), 
+                    cov.reduce = median,
+                    type = 'response'))
+
+emm_turb_g <- as.data.frame(emmeans(drop_density_gam_g, "Turb", 
+                    at = list(Turb = seq(2, 14, 0.25)), 
+                    cov.reduce = median,
+                    type = 'response'))
+```
+
+```{r}
+ggplot() +
+  geom_ribbon(data = emm_turb_l, mapping = aes(x = Turb, 
+                                              ymin = lower.CL, 
+                                              ymax = upper.CL), 
+              fill = 'blue', alpha = 0.25) +
+  geom_ribbon(data = emm_turb_g, mapping = aes(x = Turb, 
+                                              ymin = lower.CL, 
+                                              ymax = upper.CL), 
+              fill = 'yellow', alpha = 0.25) +
+  geom_line(data = emm_turb_l, mapping = aes(x = Turb, y = response), 
+            color = 'blue') +
+  geom_line(data = emm_turb_g, mapping = aes(x = Turb, y = response),
+            color = 'yellow') +
+  geom_point(data = smaller_data, mapping = aes(x = Turb, y = combined_density))
+```
+
+Again, the error bands are similar.
+
+### Chlorophyll
+```{r}
+emm_chl_l <- as.data.frame(emmeans(drop_density_gam_l, "Chl", 
+                    at = list(Chl = seq(1, 18, 0.5)), 
+                    cov.reduce = median,
+                    type = 'response'))
+
+emm_chl_g <- as.data.frame(emmeans(drop_density_gam_g, "Chl", 
+                    at = list(Chl = seq(1, 18, 0.5)), 
+                    cov.reduce = median,
+                    type = 'response'))
+```
+
+```{r}
+ggplot() +
+  geom_ribbon(data = emm_chl_l, mapping = aes(x = Chl, 
+                                              ymin = lower.CL, 
+                                              ymax = upper.CL), 
+              fill = 'blue', alpha = 0.25) +
+  geom_ribbon(data = emm_chl_g, mapping = aes(x = Chl, 
+                                              ymin = lower.CL, 
+                                              ymax = upper.CL), 
+              fill = 'yellow', alpha = 0.25) +
+  geom_line(data = emm_chl_l, mapping = aes(x = Chl, y = response), 
+            color = 'blue') +
+  geom_line(data = emm_chl_g, mapping = aes(x = Chl, y = response),
+            color = 'yellow') +
+  geom_point(data = smaller_data, mapping = aes(x = Chl, y = combined_density))
+```
+Note that the extreme chlorophyll sample remains in the data set, but standard
+error of prediction from the Gamma model does not balloon to the same extent.
+Apparently, those low salinity samples had a big effect on the Gamma model, but
+less of an effect on the log-linear model.
+

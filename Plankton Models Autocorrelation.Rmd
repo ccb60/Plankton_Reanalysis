@@ -1,0 +1,1223 @@
+---
+title: "Random Factors and AUtocorrelation in Plankton Models"
+author: "Curtis C. Bohlen, Casco Bay Estuary Partnership"
+date: "4/04/2022"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    fig_width: 5
+    fig_height: 4
+---
+
+<img
+    src="https://www.cascobayestuary.org/wp-content/uploads/2014/04/logo_sm.jpg"
+    style="position:absolute;top:100px;right:50px;" />
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = 'center',
+                      fig.width = 5, fig.height = 4,
+                      collapse = TRUE, comment = "#>")
+```
+
+# Introduction
+This notebook is a follow up on earlier efforts to explore further changes in
+data analysis.
+
+As before, this Notebook looks at:
+
+1.  Non-linear fits between zooplankton community metrics and possible 
+    environmental drivers, and 
+
+2. Examination of responses of one individual species to those same drivers.
+
+I've trimmed down the analysis workflow, since I looked at the data 
+distributions, etc. previously, but the major steps remain the same.
+
+The major changes in this notebook address spatial and temporal structure.
+In particular, I want to consider:
+
+1. Seasonal patterns  
+2. Temporal correlation  
+3. Spatial patterns  
+4. Spatial correlation
+
+The available data is not collected on a regular grid in either space or time,
+so we can not use ARIMA models or their cousins directly to model
+autocorrelation (as ARIMA models are defined on a regular time series).  But we
+can employ several different approaches to think through related questions:
+
+1.  ANOVA  or ANCOVA models, and especially "hierarchical" or "mixed effects"
+    models, fit groups that imply observations belong in "correlation classes" 
+    defined by the random and fixed terms in the model. 
+    
+2.  We can look at formal autocorrelation structure using either generalized
+least squares (for linear models) or GAMM models (for other models). These
+correlation structures can be fit to sample order (appropriate for regular time
+series) or to quantitative metrics, such as date and river mile.
+    
+The difference between the two is subtle, but potentially important. Method (1)
+says that observations collected at the same time (or in the same CLASS) are 
+correlated, but it imposes no structure on the correlations between classes.
+Method (2) imposes structure based on some sort of a "distance" metric, 
+typically based on time or geographic distance.
+
+My conclusion is that autocorrelation structures don't add much to the models, 
+but that hierarchical models and explicit modeling of correlation groups
+using hierarchical models are very important.
+
+# Data Preparation
+## Load Libraries
+```{r libraries, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(readxl)
+library(nlme)      # for generalized least squares and 
+                   # convenient access to correlations structures
+library(lme4)
+library(mgcv)      # for GAMM models
+library(emmeans)   # For extracting useful "marginal" model summaries
+
+library(ncf)      # one simple implementation of spatial correlograms
+
+theme_set(theme_classic())
+```
+
+## Folder References
+```{r folder_refs}
+data_folder <- "Original_Data"
+```
+
+## Load Data
+```{r load_enviro_data}
+filename.in <- "penob.station.data EA 3.12.20.xlsx"
+file_path <- file.path(data_folder, filename.in)
+station_data <- read_excel(file_path, 
+                           sheet="Final", col_types = c("skip", "date", 
+                                              "numeric", "text", "numeric", 
+                                              "text", "skip", "skip", 
+                                              "skip", 
+                                              rep("numeric", 10),
+                                              "text", 
+                                              rep("numeric", 47),
+                                              "text",
+                                              rep("numeric", 12))) %>%
+  rename_with(~ gsub(" ", "_", .x)) %>%
+  rename_with(~ gsub("\\.", "_", .x)) %>%
+  rename_with(~ gsub("\\?", "", .x)) %>%
+  rename_with(~ gsub("%", "pct", .x)) %>%
+  rename_with(~ gsub("_Abundance", "", .x)) %>%
+  filter(! is.na(date))
+```
+
+Station names are arbitrary, and Erin previously expressed interest in renaming 
+them from Stations 2, 4, 5 and 8 to Stations 1,2,3,and 4.
+
+The `factor()` function by default sorts levels before assigning numeric codes,
+so a convenient way to replace the existing station codes with sequential
+numbers is to create a factor and extract the numeric indicator values with 
+`as.numeric()`.
+
+```{r change_station_names_2}
+station_data <- station_data %>%
+  mutate(station = factor(as.numeric(factor(station))))
+head(station_data)
+```
+
+### Subsetting to Desired Data Columns
+I base selection of predictor variables here on the ones used in the manuscript.
+
+```{r build_env_data}
+base_data <- station_data %>%
+  rename(Date = date, 
+         Station = station,
+         Year = year) %>%
+  select(-c(month, month_num)) %>%
+  mutate(Month = factor(as.numeric(format(Date, format = '%m')),
+                                                levels = 1:12, 
+                                                labels = month.abb),
+         DOY = as.numeric(format(Date,format = '%j')),
+         season = factor(season, levels = c('Spring', 'Summer', 'Fall')),
+         Yearf = factor(Year)) %>%
+  rename(Season = season,
+         Temp = ave_temp_c,
+         Sal = ave_sal_psu,
+         Turb = sur_turb,
+         AvgTurb = ave_turb_ntu,
+         DOsat = ave_DO_Saturation,
+         Chl = ave_chl_microgperl,
+         RH = Herring
+         ) %>%
+  select(Date, Station, Year, Yearf, Month, Season, DOY, riv_km, Temp, Sal, Turb, AvgTurb, 
+         DOsat, Chl, RH, 
+         combined_density,H, SEI,
+         Acartia, Balanus, Eurytemora, Polychaete, Pseudocal, Temora) %>%
+  arrange(Date, Station)
+head(base_data)
+```
+
+```{r}
+rm(station_data)
+```
+
+### Add Transformed Predictors
+We can treat the sampling history as "spring", "summer" and "fall" observations 
+each year from 2013 through 2017.  This breaks the temporal pattern down 
+into integer valued time, generating a "quasi regular" time series, and
+allowing us to simplify the analysis of temporal autocorrelation.  The "real 
+world" time difference across the winter is longer that between seasons, but  I
+could not find a ready way to address that.
+
+We need both the numerical sequence and a factor later, for different purposes.
+
+```{r}
+base_data <- base_data %>%
+  mutate(sample_seq = as.numeric(Season) + (Year-2013)*3,
+         sample_event = factor(sample_seq))
+```
+
+## Data Without Low Salinity Observations
+```{r}
+low_sample <- which(base_data$Sal <= 5)
+smaller_data <- base_data[-low_sample,]
+```
+# Examining Autocorrelation
+The form of autocorrelation structures is not immediately obvious, but there 
+are common choices, which differ for temporal and spatial autocorrelation 
+models.  We have relatively few sample dates, and relatively few sample 
+locations, so there is likely no way to formally test "goodness of fit" for
+different correlations structures.
+
+For temporal autocorrelation structures, I'll examine a "conventional" "AR1" structure, which corresponds to an autoregressive model with order 1. It's not
+that I think this model is in any way "correct", but that it's a first
+order assumption.  It basically says observations close in time are likely to
+more similar than observations further apart in time.  The expected degree of
+correlation drops off fast (exponentially) with time.
+    
+I'm less certain where to start with the spatial autocorrelation. This is 
+especially tricky, as we have only the "river mile" metric or the choice of four
+stations to work with (inducing a rank ordering of proximity). There's just 
+not a lot of info to work with there.
+
+I plan to walk through graphic summary of the autocorrelation structure of the
+data, then take it step by step developing increasingly complex models and 
+reviewing the autocorrelation structure of model residuals.
+
+## Temporal Autocorrelation
+I start with temporal autocorrelation analysis.  *A priori*, I doubt this is 
+going to be very helpful.  We have only 15 sampling events....
+
+### Raw Data
+```{r fig.height = 6}
+acf_data <- base_data %>%
+  select(sample_event, Station, combined_density) %>%
+  group_by(sample_event, Station) %>%
+  mutate(combined_density = log(combined_density)) %>%
+  pivot_wider(id_cols = c(sample_event, Station), 
+               values_from = 'combined_density',
+               names_from = 'Station',
+               names_prefix = 'St_' )
+
+oldpar <- par(mfrow = c(2,2), mar = c(5,4, 6,2) + 0.1)
+acf(acf_data$St_1)
+acf(acf_data$St_2)
+acf(acf_data$St_3)
+acf(acf_data$St_4)
+par(oldpar)
+```
+
+So, raw autocorrelations on individual stations don't reach statistical
+significance, but since the sample is so small (15 observations in time), that
+alone does not mean much. Note that the estimated autocorrelations at stations 2
+and 4 show the kind of gradual decline one would expect if there is some
+autocorrelation, but any correlation is swamped by other sources of variability.
+(The time series of average densities across all four Stations DOES show some
+autocorrelation).
+
+### Linear Model
+We want to look at autocorrelations in residuals after fitting likely
+predictors.
+
+For simplicity, I'm sticking with simple log-linear models that fits all of the 
+spatial and temporal factors that I use in later models. That imposes the same correlation structure as induced in the later models.  Here, however, we don't
+fit any quantitative predictors.  We are actually not inerested in statistical
+significnace here, we only want to loo kat teh structure of the residuals.
+
+```{r fig.height = 6}
+the_lm <- lm(log(combined_density) ~ Station + Yearf + Season + sample_event, 
+             data = base_data)
+
+r <- resid(the_lm)
+p <- predict(the_lm)
+r_data <- base_data %>%
+  select(Yearf, Month, sample_event, Station, combined_density) %>%
+  mutate(resid = r) 
+acf_data_lm <- r_data %>%
+  pivot_wider(id_cols = c(sample_event, Station), 
+               values_from = resid,
+               names_from = 'Station',
+               names_prefix = 'St_' )
+
+oldpar <- par(mfrow = c(2,2), mar = c(5,4, 6,2) + 0.1)
+acf(acf_data_lm$St_1)
+acf(acf_data_lm$St_2)
+acf(acf_data_lm$St_3)
+acf(acf_data_lm$St_4)
+par(oldpar)
+
+```
+
+That has significantly reduced the autocorrelations. By fitting several models,
+I learned that the `Yearf` term is most important, but the `Season` term has an
+effect, reducing correlation of residuals at lags 1 and 2.
+
+based on that analysis, would not immediately think that we need to fit a 
+temporal autocorrelation structure to these data, but there are other
+indications that there may stil lbe som eremaining serial autocorrelation, just
+not very strong autocorrelation.
+
+### Generalized Least Squares Model
+What I do here is fit a model that includes autocorrelation, just so I can
+see how large the autocorrelation term is after we have fit all of the spatial
+and temporal factors as predictors.
+
+Here, I estimate temporal autocorrelation based on the sample sequence. I had trouble fitting models that would estimate autocorrelation based on dates or another quantitative metric of temporal proximity.
+
+I can't fit `sample_event` here, as it produces a signular model, and `gls()` 
+does not have a clear fallback strategy for singular models the way `lm()` does.
+
+```{r}
+the_gls_order<- gls(log(combined_density) ~ Station + Yearf + 
+                      Season,
+               correlation = corAR1(form = ~ sample_seq | Station), 
+               data = base_data)
+```
+
+```{r}
+the_gls_order$modelStruct$corStruct
+```
+
+So, when I do fit an autocorrelation term, the model fits a low value for the 
+serial autocorrelation coefficient.
+
+I don't know of a good method for deciding whether it is important to include
+serial autocorrelation i, a statistical model, although I'm fairly sure they 
+exist.  But based on the previous `acf()` plots,a nd this estimate of serial
+autocorrelaiton, I don't think it's important in this case.
+
+### Conclusions
+It's important to fit either random or fixed effects for year, and probably 
+for season in any model.  Including `sample_event` may or may not be important.
+It appears there is little value to fitting models with formal temporal 
+autocorrelation structure.
+
+## Spatial Autocorrelation
+I decided to explore spatial autocorrelation using a "spatial correlogram".
+This is a graphic that depicts correlations at different distances, classically 
+in either geographic space or as distances along some a connected graph.
+
+I took this approach because I'm fairly familiar with it.  Poking around online, 
+it looks like there are some more up to date methods that might be more 
+useful, but I'm not sure we have enough spatial data to do very much
+with spatial autocorrelations, so this is a good start.
+
+Again, we have only four sample stations, so I would be surprised if we have 
+enough data for these comparisons to be very informative, but I proceed anyway.
+
+Our best measure of physical proximity is river kilometer, which varies over 
+a range of about 20.  We have "distances" between observations from zero to
+about 20 kilometers.
+
+Here's a histogram of river kilometer values:
+
+```{r}
+ggplot(base_data, aes(riv_km)) +
+  geom_histogram(aes(fill = Yearf), binwidth = 1) +
+  xlim(0,25)
+```
+
+### Raw Data
+#### River kilometer
+```{r}
+ncf.cor <- correlog(base_data$riv_km, rep(1, 15*4), 
+                    log(base_data$combined_density),
+                    increment = 1)
+
+plot(ncf.cor)
+```
+
+There is no evidence of spatial correlation in that plot.  Values are mostly 
+smal and jump back and forth from positive to negative, suggesting they are
+largely due to chance.
+
+
+Looked at in a slightly different way:
+```{r}
+ncf.spline <- spline.correlog(base_data$riv_km, rep(1, 15*4),
+                               log(base_data$combined_density))
+
+plot(ncf.spline)
+```
+
+We can also look at a correlogram by Station, but here we have only 
+four groups, so there's not much to go on.
+```{r}
+ncf.cor <- correlog(as.numeric(base_data$Station), rep(1, 15*4), 
+                    log(base_data$combined_density),
+                    increment = 1)
+
+plot(ncf.cor)
+```
+
+The estimated correlation coefficients are tiny.  There is no evidence here that
+we should fit a spatial autocorrelation structure either.
+
+### Linear Model
+Just as before, we may want to look at whether there is any clear spatial 
+structure to model residuals after we fit our linear model.
+```{r fig.height = 6}
+r <- resid(the_lm)
+p <- predict(the_lm)
+r_data <- base_data %>%
+  select(Yearf, Month, sample_event, Station, riv_km, combined_density) %>%
+  mutate(resid = r) 
+```
+
+```{r}
+ncf.cspline <- spline.correlog(r_data$riv_km, rep(1, 15*4),
+                               log(r_data$resid), na.rm = TRUE)
+
+plot(ncf.cspline)
+```
+
+Smoothed estimates of spatial autocorrelation are moderate, with a wide error 
+band.  The largest autocorrelation estimates are negative, at intermediate 
+distances, which makes relatively little sense, from a scientific perspective.
+
+I'm not convinced we have spatial correlations structure to model, but as for
+temporal autocorrelation, I don't know of a simple formal test that is likely
+to be informative with our relatively small sample size and few geographic locations.
+
+### Conclusion
+We don't need to fit a spatial autocorrelation term, although it would not
+be unreasonable to look at spatial corellograms of the residual from or final
+models to check.
+
+# Modeling Strategy
+Overall, I'll continue to mimic the linear models from the manuscript, only using
+GAMMs instead of linear models. 
+
+I'm shooting for a consistent model structure  that we can use over and over 
+again for each of the responses of interest.  I poke at various models fairly
+hard based on the `combined_density` values, but after I've selected my prefered
+model structure for that response, I just go ahead and use the same model for each of the other responses of interest.
+
+I've made a few other changes compared to the linear analyses in the original
+manuscript:
+
+1. I transformed some predictor variables. This was to ease model fitting, but 
+   may not be the right call if the transformed variables make no sense, are
+   hard to explain to readers, or or if there are scientific reasons to not
+   look at transformed predictor variables.
+
+2. I have shifted to 'GAMM' models  These allow fitting fairly arbitrary smooth
+   relationships between predictors and response variables.  GAMMs allow
+   use of "mixed models" (random factors) and autocorrelation structures, which 
+   we need here, so we can't get away with just using GAMs.
+
+3. I have added a term for Season into the models.  These models thus have both
+   Location in the estuary -- via the Station factor -- and time of year -- via 
+   the `Season` factor included in the model.  These are both classification
+   variables.
+   
+4. In the interest of documenting alternative models, I have fit models both
+   including an not including the extreme low salinity samples.
+
+## Mixed Models
+In mixed models, we have the opportunity to address certain factors in either
+the fixed effects or the random effects components of the model. 
+
+The model will fit a series of indicator variables for different levels of a
+factor included in the fixed effects, while for a random effect, the model will
+fit only an estimate of the associated "variance component" or uncertainty
+associated with that factor.
+
+Typically, we fit "random effects" to represent groups of observations that are
+all similar or related due to something about the sampling design that we are
+willing to consider "random" or unimportant to understand in detail.  This might
+include the subject in a repeated measures design, the plot in an agricultural
+split plot design, or the sampling date in a long-term study. Random factors
+allow for correlations among observations within a group, without affecting the
+quantitative effects of primary interest.
+
+In our context, we need to represent BOTH sample locations and time in the model somehow. 
+
+Each station was sampled repeatedly. Formally, this is a "repeated measures"
+analysis. That can be modeled either as a hierarchical model (with Station as a
+"Random Factor"), or by fitting Stations as a factor in the model. We can't
+leave station out of the model entirely.  I prefer to include Station as a fixed
+effect, because we may want to interpret differences between stations with some
+sort of causal explanation.
+
+We face a similar choices regarding how to include temporal terms. From a
+scientific perspective, we are probably most interested in seasonal patterns.  I
+decided to formally fit `Season` as a fixed effect in these models, but most
+temporal variables are of little interest, so they should be included in the
+models as random factors.
+
+## Selection of Predictors
+The following models use the same predictor variables, although I vary the
+structure of the temporal random structure from model to model.
+
+In particular, I **still** have not tried to fit any interaction terms between
+predictors, although from a scientific perspective, interactions might be
+enlightening.
+
+I have transformed several predictors to ensure predictors are more evenly
+distributed across the model space. This is for purely statistical reasons, and
+one could argue on scientific grounds against any of these choices.
+
+GAM models are built on a combination of zero or more "linear" predictors and
+one or more "smooth" predictors. GAMM models are similar, but can include a 
+"random effects" structure or a correlations structure.
+
+For all  of the models that follow, I use the the same suite of predictors, although I will explore different ways of fitting random effects 
+and covariance structures.
+
+*  Linear Terms
+   * Station.  This fits a mean value for each Station, which adjusts for
+     conditions at that site.  This is not necessarily a very robust way of 
+     addressing location in the estuary, since I would not be surprised if those
+     differences themselves show seasonal patterns, especially based on the 
+     location of the turbidity maximum, but it's a reasonable starting point.
+     
+   * Season.  We include a season term, not so much because we are interested in 
+     estimated effect sizes, as because we have reason to believe samples
+     collected in certain seasons are likely to be more similar than samples
+     collected in other seasons.  
+
+*  Smoothed Terms  
+   * Temperature (untransformed)  
+   * Salinity (untransformed) but as you will see, there are still problems  
+   * log(Turbidity)  
+   * log(Chlorophyll)  
+   * log(River Herring + 1 ).  I had to add one to deal with zero counts.
+   
+*  Random Terms  
+   * Year. I added Year as a random factor (`Yearf`). The model fits a single 
+     estimate of variance from year to year, rather than fitting separate 
+     parameters for each year. 
+   * Sampling event (`sample_event`). This is an alternative that basically says
+     every sampling event is sightly different, for reasons we don't examine.
+   
+*  Correlation Structure  
+   * I test the effect of fitting an AR1 autocorrelation structure based
+     on `sample_seq` within each Station.  
+
+## Shrinkage Estimators
+Each of these models uses "Shrinkage" estimates of the smoothing terms, which
+allow certain terms to be "shrunk" out of the model. It's an alternative to AIC
+based model selection. See the help file for `step.gam`, which explains why
+`mgcv` does not include a step procedure.
+
+## Model Alternatives
+We are looking at values (density) over the positive number line. So we should
+principally look at models that assign zero probability (or negligibly small
+probability) to negative numbers.
+
+Also, we expect our estimates of "density" to be pretty precise when density is
+low, but not if density is high.  If we only count 5 zooplankton, it's unlikely
+that a replicate count would find 55, so an error of 50 is highly unlikely. On
+the other hand, if we count 3000, we might not be too surprised if a replicate
+count had 3050.  
+
+Our best model choices should reflect those two features of our data. I
+considered many model alternatives (see the other notebooks for deeper
+discussion), but have settled on using Gaussian models on log transformed ( and
+log + 1 transformed) response variables.  These models naturally assume higher
+deviations for higher density. The log transform assumes deviations are
+proportional to density, which feels like a reasonable assumption.
+But there's a wonky outlier in the log transformed models of 
+`combined_density`....
+ 
+# Testing Models With Different Random Structures
+If you want to jump ahead, look at Model 4.  That's the one I like best, and I
+develop the analysis more completely than for the other models.
+
+## Model 1:  GAMM Model with random factor `Yearf`
+```{r}
+density_gam <- gamm(log(combined_density) ~ 
+                      Station + 
+                      Season +
+                      s(Temp, bs="ts") +
+                      s(Sal, bs="ts") + 
+                      s(log(Turb), bs="ts") + 
+                      s(log(Chl), bs="ts") + 
+                      s(log1p(RH),bs="ts"),
+                    random = list(Yearf = ~ 1),
+                    data = base_data, family = 'gaussian')
+```
+
+```{r}
+summary(density_gam$gam)
+```
+
+### Missing Values?
+The last line of the output shows `n = 58`, but we started with 60 observations
+(5 years x 23 seasons x 4 Stations. Two samples were dropped from these models
+because we lack River Herring data. 
+
+**We could include all samples if we drop herring as a predictor,**
+**but that was one of the motivating questiosn behind the original study!** 
+
+```{r}
+base_data %>%
+  select(combined_density, Station , Season, Temp,
+          Sal, Turb, Chl, RH, Yearf) %>%
+  filter(! complete.cases(.))
+```
+
+```{r}
+anova(density_gam$gam)
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(density_gam$gam)
+par(oldpar)
+```
+
+### Model Checks
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(density_gam$gam)
+par(oldpar)
+```
+
+The residuals are excellent, but the two low fitted values are problematic. 
+As we saw before, those are low salinity samples.
+
+### Autocorrelation of Residuals
+```{r fig.height = 6}
+r <- resid(density_gam$gam)
+r_data <- base_data %>%
+  select(Yearf, Month, Season, sample_event, Station, Temp,
+          Sal, Turb, Chl, RH, combined_density) %>%
+  filter(complete.cases(.)) %>%
+  mutate(resid = r) 
+
+acf_data_cor <- r_data %>%
+  pivot_wider(id_cols = c(sample_event, Station), 
+               values_from = resid,
+               names_from = 'Station',
+               names_prefix = 'St_' )
+
+oldpar <- par(mfrow = c(2,2), mar = c(5,4, 6,2) + 0.1)
+acf(acf_data_cor$St_1, na.action = na.pass)
+acf(acf_data_cor$St_2, na.action = na.pass)
+acf(acf_data_cor$St_3, na.action = na.pass)
+acf(acf_data_cor$St_4, na.action = na.pass)
+par(oldpar)
+```
+
+Interestingly, there is slightly MORE evidence for temporal autocorrelation here
+than there was for our considerably simpler linear models.
+
+## Model 2: with Autocorrelation
+Here , we add an autocorrelation term to the previous model.
+```{r}
+density_gam_cor <- gamm(log(combined_density) ~ 
+                          Station + 
+                          Season +
+                          s(Temp, bs="ts") +
+                          s(Sal, bs="ts") + 
+                          s(log(Turb), bs="ts") + 
+                          s(log(Chl), bs="ts") + 
+                          s(log1p(RH),bs="ts"),
+                        random = list(Yearf = ~ 1),
+                        correlation = corAR1(form = ~ sample_seq|Station),
+                        data = base_data, family = 'gaussian')
+summary(density_gam_cor$gam)
+```
+
+Including a correlations structure reduces the standard errors, but there's 
+trouble:
+
+### Autocorrelation Structure
+```{r}
+density_gam_cor$lme$modelStruct$corStruct
+```
+
+THe autocorrelation coefficient is **negative**. That suggests successive
+observations are more different than expected, not less different as we would
+expect. I'd recommend **against** fitting an autocorrelation term.  I don't 
+think a negative autocorrelation makes any scientific sense in our context.
+
+## Model 3: With random term for `sampling_event`
+Another way to address correlations is to treat each sampling event as a random
+factor in its own right. This does not suggest that sequential observations
+should be either more or less similar to each other, but does imply that some
+sample days are higher and some samples are lower, largely due to chance.
+
+```{r}
+density_gam_seq <- gamm(log(combined_density) ~ 
+                          Station + 
+                          Season +
+                          s(Temp, bs="ts") +
+                          s(Sal, bs="ts") + 
+                          s(log(Turb), bs="ts") + 
+                          s(log(Chl), bs="ts") + 
+                          s(log1p(RH),bs="ts"),
+                        random = list(sample_event = ~ 1),
+                        data = base_data, family = 'gaussian')
+summary(density_gam_seq$gam)
+```
+
+That model actually increases standard errors... Worse, it ceases to fit an
+annual correction in any meaningful way, and we think year to Year variation is
+important.
+
+We can take a look at the random effects fitted. 
+
+```{r}
+rr <- ranef(density_gam_seq$lme)$sample_event
+plot(rr$`(Intercept)`)
+```
+I think I can see some remaining temporal structure, with each annual grouping 
+of three observations lookign "more similar" that expected. I think we need to
+keep the `yearf` term in the model somewhere (fixed effects or random effects).
+
+## Model 4: With random terms for `Yearf` and `sampling_event`
+```{r}
+density_gam_seq_2 <- gamm(log(combined_density) ~ 
+                          Station + 
+                          Season +
+                          s(Temp, bs="ts") +
+                          s(Sal, bs="ts") + 
+                          s(log(Turb), bs="ts") + 
+                          s(log(Chl), bs="ts") + 
+                          s(log1p(RH),bs="ts"),
+                        random = list(Yearf = ~ 1, sample_event = ~ 1),
+                        data = base_data, family = 'gaussian')
+summary(density_gam_seq_2$gam)
+```
+```{r}
+rr <- ranef(density_gam_seq_2$lme)$sample_event
+rYear <- ranef(density_gam_seq_2$lme)$Yearf
+plot(rr$`(Intercept)`)
+```
+
+The random terms for sampling_events don't show structure any more.  We
+definitely need the Year random factor.
+
+Extracting the variance components is a bit tricky, because they are buried 
+in the `lme` object, which hides a lot of the complexity of the GAMM fitting.
+```{r}
+vc <- VarCorr(density_gam_seq_2$lme)
+# `VarCorr()` produces a text matrix.
+# I want the last few rows,  I had to look at it to figure out which rows
+# contain the information I wanted.  
+
+as_tibble(unclass(vc))[c(52, 54, 55),] %>%
+  mutate(across(everything(), function(x) round(as.numeric(x), digits = 3)),
+        name = rownames(vc)[c(51, 53, 55)]) %>%
+  relocate(name)
+```
+If I'm reading that correctly, the `Yearf` term is fit as a normal variate with
+mean zero and standard deviation 0f 0.557, while the individual sampling events
+were fit as a normal variate with standard deviation 0.301 on top of that. The
+residual for the model is on the order of 0.419, so slightly higher than
+variation among the samples, but less than variation among the Years.
+
+```{r}
+anova(density_gam_seq_2$gam)
+```
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(density_gam_seq_2$gam)
+par(oldpar)
+```
+
+```{r fig.width = 3, fig.height = 2}
+Sta_emms <- emmeans(density_gam_seq_2, ~Station, type = 'response', 
+                    data = base_data)
+plot(Sta_emms)
+pairs(Sta_emms, adjust ='bonferroni')
+```
+
+```{r fig.width = 3, fig.height = 2}
+Seas_emms <- emmeans(density_gam_seq_2, ~Season, type = 'response',
+                     data = base_data)
+plot(Seas_emms)
+pairs(Seas_emms, adjust ='bonferroni')
+```
+
+
+
+*  The Station differences are significant by ANOVA F test.  Pairwise
+   comparisons show that Station 1 (upstream) shows the highest combined 
+   density, which is significantly higher than for Stations 2 and 4, but not
+   different from Station 3 (by multiple comparisons test anyway). There are no
+   meaningful differences among the three downstream Stations.
+   
+*  While zooplankton density varies by season, none of the pairwise comparisons 
+   or marginal means are individually significant. Densities are somewhat higher 
+   in the spring.
+   
+*  Salinity Shows a highly significant curved (~ 3 edf) pattern, driven largely
+   by a couple of very low salinity, low density samples.
+
+*  Turbidity and Chlorophyll both fit close to linear (~ 1 edf) relationships
+   that appear fairly robust to model specification.  Zooplankton abundance is
+   correlated with higher chlorophyll land higher turbidity.  (it's not 
+   unreasonable to test for a significant interaction there, btu I have not done
+   so.)
+
+## Model Comparisons
+### Compare Model 1 and Model 2
+```{r}
+anova(density_gam$lme, density_gam_cor$lme)
+```
+
+So the model that includes a correlation structure is better that a model 
+without.
+
+### Compare Model 1 and Model 4
+```{r}
+anova(density_gam$lme, density_gam_seq_2$lme)
+```
+
+The model that includes the random factor for each sampling event *also* 
+outperforms Model 1. 
+
+We can't run a formal test between Models 2 and 4, because they are not nested,
+and have identical number of estimated parameters (degrees of freedom), but we
+can still informally compare models by AIC.  Model 4 has(ever so slightly)
+smaller AIC / log likelihood compared to model 2.
+
+## Conclusions
+I don't think a negative autocorrelation structure makes any sense in this 
+context. Since models 2 and 4 perform nearly as well (by AIC), I lean towards using model 4.
+
+## Model 4, but Without the Low Salinity Samples
+```{r}
+density_gam_seq_2 <- gamm(log(combined_density) ~ 
+                          Station + 
+                          Season +
+                          s(Temp, bs="ts") +
+                          s(Sal, bs="ts") + 
+                          s(log(Turb), bs="ts") + 
+                          s(log(Chl), bs="ts") + 
+                          s(log1p(RH),bs="ts"),
+                        random = list(Yearf = ~ 1, sample_event = ~ 1),
+                        data = smaller_data, family = 'gaussian')
+summary(density_gam_seq_2$gam)
+```
+
+```{r}
+anova(density_gam_seq_2$gam)
+```
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(density_gam_seq_2$gam)
+par(oldpar)
+```
+
+That fits linear relationships to salinity, turbidity and chlorophyll.
+Differences between the Stations remain important, but there is little evidence 
+here for a seasonal pattern.  That suggests that some of the seasonal pattern we found before was the result of fitting those low salinity spring samples. Those
+low salinity  spring samples had large effect on model fits.
+
+# Diversity (Shannon Index)
+It would probably be better to check each of our four random model structures 
+for the diversity data too, but instead, we dive right in using the same model
+form, and i tlooks like we can get away with it.
+
+## Gaussian GAM, with Identity Link
+We are using "Shrinkage" estimates of the smoothing terms again, which allow
+certain terms to be "shrunk" out of the model
+
+```{r}
+shannon_gam <- gam(H ~ Station + 
+                     Season +
+                     s(Temp, bs="ts") +
+                     s(Sal, bs="ts") + 
+                     s(log(Turb), bs="ts") + 
+                     s(log(Chl), bs="ts") + 
+                     s(log1p(RH),bs="ts"),
+                   random = list(Yearf = ~ 1, sample_event = ~ 1),
+                   data = base_data, family = 'gaussian')
+summary(shannon_gam)
+```
+
+```{r}
+anova(shannon_gam)
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(shannon_gam)
+par(oldpar)
+```
+
+While the GAMM fits curves for several predictors, only the relationship with
+salinity is retained in the model as statistically significant.  It appears
+much of that pattern is driven by a couple of low salinity samples.
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(shannon_gam)
+par(oldpar)
+```
+
+Not a bad model from a diagnostics point of view.
+
+
+## Model on Log Transformed data
+Analysis of log-transformed data gives quaitatively siml
+```{r}
+shannon_gam_2 <- gam(log(H) ~ Station + 
+                       Season +
+                       s(Temp, bs="ts") +
+                       s(Sal, bs="ts") + 
+                       s(log(Turb), bs="ts") + 
+                       s(log(Chl), bs="ts") + 
+                       s(log1p(RH),bs="ts"),
+                     random = list(Yearf = ~ 1, sample_event = ~ 1),
+                     data = base_data, family = gaussian)
+summary(shannon_gam_2)
+```
+```{r}
+anova(shannon_gam_2)
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(shannon_gam_2)
+par(oldpar)
+```
+
+The only consistently significant relationship between diversity and any of the
+predictors relates to salinity.  Unfortunately, most of that pattern appears
+again due to a handful of low salinity samples.
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(shannon_gam_2)
+par(oldpar)
+```
+
+That extreme negative outlier is the main weakness of this model. This model is
+perhaps slightly less trustworthy than the Gaussian model. Luckily, results 
+are consistent.
+
+# Model without Low Salinity Observations
+```{r}
+shannon_gam_3 <- gam(log(H) ~ Station + 
+                       Season +
+                       s(Temp, bs="ts") +
+                       s(Sal, bs="ts") + 
+                       s(log(Turb), bs="ts") + 
+                       s(log(Chl), bs="ts") + 
+                       s(log1p(RH),bs="ts"),
+                     random = list(Yearf = ~ 1, sample_event = ~ 1),
+                     data = smaller_data, family = gaussian)
+summary(shannon_gam_3)
+```
+
+```{r}
+anova(shannon_gam_3)
+```
+
+So, when you remove those low salinity samples, what emerges is a statistically
+robust pattern by station, with station 1 showing lower diversity. River herring
+has an almost statistically significant effect.
+
+
+
+```{r fig.width = 3, fig.height = 2}
+Sta_emms <- emmeans(shannon_gam_3, ~Station, type = 'response', 
+                    data = base_data)
+plot(Sta_emms)
+pairs(Sta_emms, adjust ='bonferroni')
+```
+
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(shannon_gam_3)
+par(oldpar)
+```
+
+
+So, diversity is lowest in the spring, but shows no significant relationship to
+the other predictors.
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(shannon_gam_3)
+par(oldpar)
+```
+
+The extreme low residual is problematic, but otherwise this model is not too 
+bad. Failure to meet model assumption can degrade estimates of stnadard errors, 
+so perhaps the nearly significant effect o river herring is worth more exploration here, presumably with a simpler model?
+
+# Single Species Models
+## Model Choices
+Our model alternatives are basically similar to what we had for the Total 
+Density models.
+
+The problem is, we can't use any of the continuous data distributions in GAMS 
+with zero values, at least relying on the canonical link functions, because
+(log(0) = -Inf; 1/0 = Inf, 1 / 0*0 = Inf). The easiest solution is to add some finite small quantity to the density data, and predict that. Here we predict
+Density + 1.
+
+## Automating Analysis of Separate Species
+I'm going to automate analysis of all five selected species by using a "nested"
+Tibble.  This is a convenient alternative to writing a "for" loop to run
+multiple identical analyses.
+
+I create a "long" data source.
+```{r}
+spp_data <- base_data %>%
+  select(Yearf, Month, Season, sample_event, Station, Temp,
+          Sal, Turb, Chl, RH, 
+          Acartia, Eurytemora, Polychaete, Pseudocal, Temora) %>%
+  pivot_longer(-c(Yearf:RH), names_to = 'Species', values_to = 'Density')
+```
+
+
+Next, I create a function to run the analysis.  This function takes a data frame
+or tibble as an argument.  The tibble mush have data columns with the correct 
+names.
+
+The initial model fits for some species had a lot of wiggles in them, to an 
+extent that I thought did not make much scientific sense, so I decided to reduce
+the dimensionality of the GAM smoothers, by adding the parameter `k= 4`. Lowe
+numbers constrain the GAM to fit smoother lines.
+```{r}
+my_gamm <- function(.dat) {
+  
+  gam(log1p(Density) ~ Station + 
+        Season +
+        s(Temp, bs="ts", k = 4) +
+        s(Sal, bs="ts", k = 4) + 
+        s(log(Turb), bs="ts", k = 4) + 
+        s(log(Chl), bs="ts", k = 4) + 
+        s(log1p(RH),bs="ts", k = 4),
+      random = list(Yearf = ~ 1, sample_event = ~ 1),
+      data = .dat, family = "gaussian")
+}
+```
+
+
+Next, I create the nested tibble, and conduct the analysis on each species....
+
+```{r}
+spp_analysis <- spp_data %>%
+  group_by(Species) %>%
+  nest() %>%
+  mutate(gam_mods = map(data, my_gamm))
+```
+
+and finally, output the model results.  I can do that in a "for" loop, but it's 
+Awkward to look through a long list of output, so I step through each sspecies in turn.
+
+\newpage
+## Acartia
+### Summary and ANOVA
+```{r}
+spp = 'Acartia'
+mod <- spp_analysis$gam_mods[spp_analysis$Species == spp][[1]]
+summary(mod)
+cat('\n')
+anova(mod)
+```
+
+### Comparison of Station and Season
+I'm showing "marginal" means -- essentially means adjusted for the other 
+predictors, at their mean values.
+```{r fig.width = 3, fig.height = 2}
+Sta_emms <- emmeans(mod, ~Station, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Sta_emms)
+pairs(Sta_emms, adjust ='bonferroni')
+```
+
+```{r fig.width = 3, fig.height = 2}
+Seas_emms <- emmeans(mod, ~Season, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Seas_emms)
+pairs(Seas_emms, adjust ='bonferroni')
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(mod)
+par(oldpar)
+```
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(mod)
+par(oldpar)
+```
+
+\newpage
+##  Eurytemora
+### Summary and ANOVA
+```{r}
+spp =  "Eurytemora" 
+mod <- spp_analysis$gam_mods[spp_analysis$Species == spp][[1]]
+summary(mod)
+cat('\n')
+anova(mod)
+```
+
+### Comparison of Station and Season
+I'm showing "marginal" means -- essentially means adjusted for the other 
+predictors, at their mean values.
+```{r fig.width = 3, fig.height = 2}
+Sta_emms <- emmeans(mod, ~Station, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Sta_emms)
+pairs(Sta_emms, adjust ='bonferroni')
+```
+
+```{r fig.width = 3, fig.height = 2}
+Seas_emms <- emmeans(mod, ~Season, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Seas_emms)
+pairs(Seas_emms, adjust ='bonferroni')
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(mod)
+par(oldpar)
+```
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(mod)
+par(oldpar)
+```
+
+\newpage
+## Polychaete
+```{r}
+spp =  "Polychaete" 
+mod <- spp_analysis$gam_mods[spp_analysis$Species == spp][[1]]
+summary(mod)
+cat('\n')
+anova(mod)
+```
+
+### Comparison of Station and Season
+I'm showing "marginal" means -- essentially means adjusted for the other 
+predictors, at their mean values.
+```{r fig.width = 3, fig.height = 2}
+Sta_emms <- emmeans(mod, ~Station, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Sta_emms)
+pairs(Sta_emms, adjust ='bonferroni')
+```
+
+```{r fig.width = 3, fig.height = 2}
+Seas_emms <- emmeans(mod, ~Season, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Seas_emms)
+pairs(Seas_emms, adjust ='bonferroni')
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(mod)
+par(oldpar)
+```
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(mod)
+par(oldpar)
+```
+
+\newpage
+## Pseudocal  
+```{r}
+spp =  "Pseudocal"
+mod <- spp_analysis$gam_mods[spp_analysis$Species == spp][[1]]
+summary(mod)
+cat('\n')
+anova(mod)
+```
+
+### Comparison of Station and Season
+I'm showing "marginal" means -- essentially means adjusted for the other 
+predictors, at their mean values.
+```{r fig.width = 3, fig.height = 2}
+Sta_emms <- emmeans(mod, ~Station, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Sta_emms)
+pairs(Sta_emms, adjust ='bonferroni')
+```
+
+```{r fig.width = 3, fig.height = 2}
+Seas_emms <- emmeans(mod, ~Season, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Seas_emms)
+pairs(Seas_emms, adjust ='bonferroni')
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(mod)
+par(oldpar)
+```
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(mod)
+par(oldpar)
+```
+
+\newpage
+## Temora 
+```{r}
+spp =  "Temora"   
+mod <- spp_analysis$gam_mods[spp_analysis$Species == spp][[1]]
+summary(mod)
+cat('\n')
+anova(mod)
+```
+
+### Comparison of Station and Season
+I'm showing "marginal" means -- essentially means adjusted for the other 
+predictors, at their mean values.
+```{r fig.width = 3, fig.height = 2}
+Sta_emms <- emmeans(mod, ~Station, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Sta_emms)
+pairs(Sta_emms, adjust ='bonferroni')
+```
+
+```{r fig.width = 3, fig.height = 2}
+Seas_emms <- emmeans(mod, ~Season, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Seas_emms)
+pairs(Seas_emms, adjust ='bonferroni')
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(mod)
+par(oldpar)
+```
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(mod)
+par(oldpar)
+```
+
+

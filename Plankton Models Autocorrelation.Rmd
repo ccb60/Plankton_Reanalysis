@@ -210,9 +210,9 @@ going to be very helpful.  We have only 15 sampling events....
 ```{r fig.height = 6}
 acf_data <- base_data %>%
   select(sample_event, Station, combined_density) %>%
-  group_by(sample_event, Station) %>%
   mutate(combined_density = log(combined_density)) %>%
-  pivot_wider(id_cols = c(sample_event, Station), 
+
+  pivot_wider(id_cols = c(sample_event), 
                values_from = 'combined_density',
                names_from = 'Station',
                names_prefix = 'St_' )
@@ -252,7 +252,7 @@ r_data <- base_data %>%
   select(Yearf, Month, sample_event, Station, combined_density) %>%
   mutate(resid = r) 
 acf_data_lm <- r_data %>%
-  pivot_wider(id_cols = c(sample_event, Station), 
+  pivot_wider(id_cols = c(sample_event), 
                values_from = resid,
                names_from = 'Station',
                names_prefix = 'St_' )
@@ -606,7 +606,7 @@ r_data <- base_data %>%
   mutate(resid = r) 
 
 acf_data_cor <- r_data %>%
-  pivot_wider(id_cols = c(sample_event, Station), 
+  pivot_wider(id_cols = c(sample_event), 
                values_from = resid,
                names_from = 'Station',
                names_prefix = 'St_' )
@@ -978,14 +978,14 @@ Tibble.  This is a convenient alternative to writing a "for" loop to run
 multiple identical analyses.
 
 I create a "long" data source.
+
 ```{r}
 spp_data <- base_data %>%
   select(Yearf, Month, Season, sample_event, Station, Temp,
           Sal, Turb, Chl, RH, 
-          Acartia, Eurytemora, Polychaete, Pseudocal, Temora) %>%
+          Acartia, Balanus, Eurytemora, Polychaete, Pseudocal, Temora) %>%
   pivot_longer(-c(Yearf:RH), names_to = 'Species', values_to = 'Density')
 ```
-
 
 Next, I create a function to run the analysis.  This function takes a data frame
 or tibble as an argument.  The tibble mush have data columns with the correct 
@@ -995,6 +995,7 @@ The initial model fits for some species had a lot of wiggles in them, to an
 extent that I thought did not make much scientific sense, so I decided to reduce
 the dimensionality of the GAM smoothers, by adding the parameter `k= 4`. Lowe
 numbers constrain the GAM to fit smoother lines.
+
 ```{r}
 my_gamm <- function(.dat) {
   
@@ -1062,6 +1063,50 @@ oldpar <- par(mfrow = c(2,2))
 gam.check(mod)
 par(oldpar)
 ```
+
+\newpage
+## Balanus
+### Summary and ANOVA
+```{r}
+spp = 'Balanus'
+mod <- spp_analysis$gam_mods[spp_analysis$Species == spp][[1]]
+summary(mod)
+cat('\n')
+anova(mod)
+```
+
+### Comparison of Station and Season
+I'm showing "marginal" means -- essentially means adjusted for the other 
+predictors, at their mean values.
+```{r fig.width = 3, fig.height = 2}
+Sta_emms <- emmeans(mod, ~Station, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Sta_emms)
+pairs(Sta_emms, adjust ='bonferroni')
+```
+
+```{r fig.width = 3, fig.height = 2}
+Seas_emms <- emmeans(mod, ~Season, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Seas_emms)
+pairs(Seas_emms, adjust ='bonferroni')
+```
+
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(mod)
+par(oldpar)
+```
+
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(mod)
+par(oldpar)
+```
+
+
+
+
 
 \newpage
 ##  Eurytemora

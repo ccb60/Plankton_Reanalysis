@@ -796,7 +796,8 @@ smaller AIC / log likelihood compared to model 2.
 
 ## Conclusions
 I don't think a negative autocorrelation structure makes any sense in this 
-context. Since models 2 and 4 perform nearly as well (by AIC), I lean towards using model 4.
+context. Since models 2 and 4 perform nearly as well (by AIC), I lean towards 
+using model 4.
 
 ## Model 4, but Without the Low Salinity Samples
 ```{r}
@@ -830,7 +831,7 @@ low salinity  spring samples had large effect on model fits.
 # Diversity (Shannon Index)
 It would probably be better to check each of our four random model structures 
 for the diversity data too, but instead, we dive right in using the same model
-form, and i tlooks like we can get away with it.
+form, and it looks like we can get away with it.
 
 ## Gaussian GAM, with Identity Link
 We are using "Shrinkage" estimates of the smoothing terms again, which allow

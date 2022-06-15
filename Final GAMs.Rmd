@@ -27,7 +27,7 @@ analysis and most alternative model formulations, and include only final models.
 
 This Notebook looks at:
 
-1. ANOVA models prdicting environmental variables based on Season and Station
+1. ANOVA models predicting environmental variables based on Season and Station
 
 2.  Non-linear fits between zooplankton density and possible 
     environmental drivers;
@@ -196,32 +196,23 @@ env_analysis <- env_data %>%
 
 ```
 
-## Collection of ANOVAs
-```{r}
-for (parm in env_analysis$Parameter) {
-  cat('\n')
-  cat(parm)
-  cat('\n')
-  print(anova(env_analysis[env_analysis$Parameter == parm,]$lme_mods[[1]]))
-}
-```
-
 ## Temperature
-Temperature is affected by Season, Station, and their interaction. Stations 2, 3 
-and 4 pretty much all work the same way, with Spring signifcantly cooler than 
-summer and fall.  But water temperatures upstream begin to drop in the fall,
-perhaps because of lower freshwater inflows, perhaps because waters on land
-already begin to cool.
 ```{r}
 parm = 'Temp'
 mod <- env_analysis$lme_mods[env_analysis$Parameter == parm][[1]]
 anova(mod)
 ```
 
+Temperature is affected by Season, Station, and their interaction.
+
 ```{r}
 emmip(mod, Station ~ Season)
 emmeans(mod, pairwise ~ Station | Season)
 ```
+Stations 2, 3 and 4 pretty much all work the same way, with Spring significantly
+cooler than summer and fall.  But water temperatures upstream begin to drop in
+the fall at Station 1, perhaps because of lower freshwater inflows, perhaps 
+because waters on land begin to cool before ocean waters.
 
 ## Salinity
 ```{r}
@@ -230,16 +221,19 @@ mod <- env_analysis$lme_mods[env_analysis$Parameter == parm][[1]]
 anova(mod)
 ```
 
+Salinity is also affected by Season, Station, and their interaction.
+
 ```{r}
 emmip(mod, Station ~ Season)
 emmeans(mod, pairwise ~ Station | Season)
 ```
 
 Station 1 has lower salinity all year long, but the effect is MUCH larger in
-spring.
+spring.  The other three stations show very similar patterns, with no clear
+differences, but slightly lower salinities in Spring.
 
 ## Turbidity
-(Turbidity was analysed in log transform)
+(Turbidity was analysed as a log transform)
 ```{r}
 parm = 'Turb'
 mod <- env_analysis$lme_mods[env_analysis$Parameter == parm][[1]]
@@ -247,20 +241,20 @@ anova(mod)
 ```
 
 Turbidity does NOT show a significant effect of Season or of the Season by 
-Station interaction, so we need only consider the Station variable. To handle 
-this correctly, I should refit the model omitting those terms.
+Station interaction, so we need only consider the Station predictor. To handle 
+this carefully, I refit a model omitting those terms. 
 
 ```{r fig.width = 3, fig.height = 2}
 tmp <- env_analysis$data[env_analysis$Parameter == parm][[1]]
 test <- lme(Value ~ Station,
        random = list(Yearf = ~ 1, sample_event = ~ 1),
       data = tmp, na.action = na.omit)
- 
 (emm <- emmeans(test, pairwise~ Station))
 plot(emm)
 ```
 
-Generally, Stations 1 and 2 are associated with higher Turbidity.
+Generally, Stations 1 and 2 are associated with higher Turbidity compared to
+stations 3 and 4.
 
 
 ## Chlorophyll
@@ -271,8 +265,8 @@ mod <- env_analysis$lme_mods[env_analysis$Parameter == parm][[1]]
 anova(mod)
 ```
 
-Again, the interaction term is not significant, but this time both main effects 
-are significant.
+The interaction term is not significant, but this time both main effects are 
+significant.
 
 ```{r fig.width = 3, fig.height = 2}
 tmp <- env_analysis$data[env_analysis$Parameter == parm][[1]]
@@ -315,21 +309,27 @@ plot(emm_stat)
 plot(emm_seas)
 ```
 
+
 Differences by station are significant, but small, with the only meaningful
 pairwise comparison comparing Station 1 different from Station 2. Seasonal 
-patterns are  easier to interpret, with highest DOsat in spring, and lowest in 
-fall.
+patterns are  easier to interpret, with lower DO Saturation in the fall.
 
 ## Discussion
 Most of the environmental variables show patterns that can be readily 
 explained in terms of estuarine processes, especially circulation and seasonal 
 input of freshwater into the upper estuary.
 
+The three of the five environmental variables -- Temperature, Salinity and 
+Chlorophyll show an important similar pattern: The spring is different from
+the other two seasons and Station one is different from the other three 
+stations.  This presumably reflects hydrodynamics and mixing processes.
 
-
-
+Turbidity shows higher values at the two upstream stations, presumably because
+those stations are associated with the location of the turbidity maximum in this 
+estuary. Dissolved oxygen saturation declines over the course of the year.
 
 # Total Zooplankton Density
+## Summary and Anova
 ```{r}
 density_gam <- gamm(log(combined_density) ~ 
                           Station + 
@@ -344,42 +344,16 @@ density_gam <- gamm(log(combined_density) ~
 summary(density_gam$gam)
 ```
 ```{r}
-rr <- ranef(density_gam$lme)$sample_event
-rYear <- ranef(density_gam$lme)$Yearf
-plot(rr$`(Intercept)`)
-```
-
-The random terms for sampling_events don't show structure any more.  We
-definitely need the Year random factor.
-
-Extracting the variance components is a bit tricky, because they are buried 
-in the `lme` object, which hides a lot of the complexity of the GAMM fitting.
-```{r}
-vc <- VarCorr(density_gam$lme)
-# `VarCorr()` produces a text matrix.
-# I want the last few rows,  I had to look at it to figure out which rows
-# contain the information I wanted.  
-
-as_tibble(unclass(vc))[c(52, 54, 55),] %>%
-  mutate(across(everything(), function(x) round(as.numeric(x), digits = 3)),
-        name = rownames(vc)[c(51, 53, 55)]) %>%
-  relocate(name)
-```
-If I'm reading that correctly, the `Yearf` term is fit as a normal variate with
-mean zero and standard deviation 0f 0.557, while the individual sampling events
-were fit as a normal variate with standard deviation 0.301 on top of that. The
-residual for the model is on the order of 0.419, so slightly higher than
-variation among the samples, but less than variation among the Years.
-
-```{r}
 anova(density_gam$gam)
 ```
+## Plot the GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
 plot(density_gam$gam)
 par(oldpar)
 ```
 
+## Station and Season
 ```{r fig.width = 3, fig.height = 2}
 Sta_emms <- emmeans(density_gam, ~Station, type = 'response', 
                     data = base_data)
@@ -393,41 +367,51 @@ Seas_emms <- emmeans(density_gam, ~Season, type = 'response',
 plot(Seas_emms)
 pairs(Seas_emms, adjust ='bonferroni')
 ```
+### Model Diagnostics
 
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(density_gam$gam)
+par(oldpar)
+```
 
+One low value is a serious outlier -- it corresponds to one of the spring 
+"washout" events.  Those "washout" events have a large impact on model fit,
+especially the substantial non-linearity in the Salinity response.
 
+## Discussion
 *  The Station differences are significant by ANOVA F test.  Pairwise
    comparisons show that Station 1 (upstream) shows the highest combined 
    density, which is significantly higher than for Stations 2 and 4, but not
    different from Station 3 (by multiple comparisons test anyway). There are no
    meaningful differences among the three downstream Stations.
    
-*  While zooplankton density varies by season, none of the pairwise comparisons 
-   or marginal means are individually significant. Densities are somewhat higher 
-   in the spring.
+*  While zooplankton density varies by season, only the Spring-Summer pairwise 
+   comparisons of marginal means is individually significant. Densities are 
+   somewhat higher in the spring than later in the year.
    
 *  Salinity Shows a highly significant curved (~ 3 edf) pattern, driven largely
-   by a couple of very low salinity, low density samples.
+   by a couple of very low salinity, low density samples from Station 1 in the 
+   Spring.
 
 *  Turbidity and Chlorophyll both fit close to linear (~ 1 edf) relationships
    that appear fairly robust to model specification.  Zooplankton abundance is
-   correlated with higher chlorophyll land higher turbidity.  (it's not 
-   unreasonable to test for a significant interaction there, btu I have not done
+   correlated with higher chlorophyll and higher turbidity.  (it's not 
+   unreasonable to test for a significant interaction there, but I have not done
    so.)
 
 # Shannon Diversity
 ## Histogram
+To decide whether we can proceed with analysis of untransformed values.
+
 ```{r fig.width = 3, fig.height = 2}
 base_data %>%
   ggplot(aes(x = H))+
   geom_histogram(binwidth = 0.2)
 ```
 
-## Gaussian GAM, Identity Link
-We are using "Shrinkage" estimates of the smoothing terms again, which allow
-certain terms to be "shrunk" out of the model.  Results of this analysis and 
-analysis on log transformed data are qualitatively similar.
-
+## Gaussian GAM with an Identity Link
+### Summary and Anova
 ```{r}
 shannon_gam <- gam(H ~ Station + 
                      Season +
@@ -445,6 +429,7 @@ summary(shannon_gam)
 anova(shannon_gam)
 ```
 
+## Plot the GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
 plot(shannon_gam)
@@ -453,17 +438,23 @@ par(oldpar)
 
 While the GAMM fits curves for several predictors, only the relationship with
 salinity is retained in the model as statistically significant.  It appears
-much of that pattern is driven by a couple of low salinity samples.
+much of that pattern is driven by a couple of low salinity samples.  This model
+is rather unsatisfying, as it finds no robust significant relationships.  We may
+want to evaluate similar models with fewer parameters to see if we can extract 
+more wisdom.
 
+### Diagnostic Plots
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
 gam.check(shannon_gam)
 par(oldpar)
 ```
 
-Not a bad model from a diagnostics point of view.
+Not a bad model from a diagnostics point of view. If only we had learned
+something useful from it.
 
 # Model of River Herring Abundance
+## Summary and ANOVA
 ```{r}
 herring_gam <- gam(log1p(RH) ~ Station + 
                      Season +
@@ -487,26 +478,25 @@ that to avoid making claims on weak evidence, one should not interpret
 individual parameters within a factor unless the overall comparison is
 significant.  Here the issue is that the Spring sample is the base case in the 
 parameter table, and Spring is moderately different from all other seasons. 
-Also, this analysis combines direct and indirect effects, hiding some detail.
 
 While the GAMM fits curves for several predictors, only the relationship with
 Turbidity in the model is statistically significant. The relationship is
 essentially linear (EDF = 0.87).
 
-
+## Plot GAM results
 ```{r}
 oldpar <- par(mfrow = c(2,3))
 plot(herring_gam)
 par(oldpar)
 ```
-
+## Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
 gam.check(shannon_gam)
 par(oldpar)
 ```
 
-THe model is good, but not great.  
+The model is pretty good, with only slightly skewed residuals.
 
 # Single Species Models
 ## Model Choice
@@ -515,7 +505,7 @@ model. The problem is, we can't use any of the continuous data distributions in
 GAMS with zero values (at least relying on the canonical link functions) because
 (log(0) = -Inf; 1/0 = Inf, 1 / 0*0 = Inf). The easiest solution is to add some 
 finite small quantity to the density data, and predict that. Here we predict
-log(Density + 1) using gaussian models.
+log(Density + 1) using Gaussian models.
 
 ## Automating Analysis of Separate Species
 I'm going to automate analysis of all selected species by using a "nested"
@@ -567,7 +557,7 @@ spp_analysis <- spp_data %>%
 ```
 
 and finally, output the model results.  I can do that in a "for" loop, but it's 
-Awkward to look through a long list of output, so I step through each sspecies in turn.
+Awkward to look through a long list of output, so I step through each species in turn.
 
 \newpage
 ## Acartia
@@ -597,13 +587,14 @@ plot(Seas_emms)
 pairs(Seas_emms, adjust ='bonferroni')
 ```
 
-### Model Diagnostics
+### Plot GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
 plot(mod)
 par(oldpar)
 ```
 
+### Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
 gam.check(mod)
@@ -638,22 +629,19 @@ plot(Seas_emms)
 pairs(Seas_emms, adjust ='bonferroni')
 ```
 
-### Model Diagnostics
+### Plot GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
 plot(mod)
 par(oldpar)
 ```
 
+### Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
 gam.check(mod)
 par(oldpar)
 ```
-
-
-
-
 
 \newpage
 ##  Eurytemora
@@ -683,13 +671,14 @@ plot(Seas_emms)
 pairs(Seas_emms, adjust ='bonferroni')
 ```
 
-### Model Diagnostics
+### Plot GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
 plot(mod)
 par(oldpar)
 ```
 
+### Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
 gam.check(mod)
@@ -724,13 +713,14 @@ plot(Seas_emms)
 pairs(Seas_emms, adjust ='bonferroni')
 ```
 
-### Model Diagnostics
+### Plot GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
 plot(mod)
 par(oldpar)
 ```
 
+### Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
 gam.check(mod)
@@ -765,13 +755,14 @@ plot(Seas_emms)
 pairs(Seas_emms, adjust ='bonferroni')
 ```
 
-### Model Diagnostics
+### Plot GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
 plot(mod)
 par(oldpar)
 ```
 
+### Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
 gam.check(mod)
@@ -806,13 +797,14 @@ plot(Seas_emms)
 pairs(Seas_emms, adjust ='bonferroni')
 ```
 
-### Model Diagnostics
+### PLot GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
 plot(mod)
 par(oldpar)
 ```
 
+### Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
 gam.check(mod)

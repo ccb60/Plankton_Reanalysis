@@ -48,7 +48,6 @@ proves to be fairly important in modelling these data.
 # Load Libraries
 ```{r libraries}
 library(tidyverse)
-library(vegan)
 library(readxl)
 library(mgcv)      # for GAM models
 library(emmeans)   # For extracting useful "marginal" model summaries
@@ -367,7 +366,7 @@ Seas_emms <- emmeans(density_gam, ~Season, type = 'response',
 plot(Seas_emms)
 pairs(Seas_emms, adjust ='bonferroni')
 ```
-### Model Diagnostics
+## Model Diagnostics
 
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
@@ -410,10 +409,9 @@ base_data %>%
   geom_histogram(binwidth = 0.2)
 ```
 
-## Gaussian GAM with an Identity Link
-### Summary and Anova
+## Summary and Anova
 ```{r}
-shannon_gam <- gam(H ~ Station + 
+shannon_gam <- gamm(H ~ Station + 
                      Season +
                      s(Temp, bs="ts") +
                      s(Sal, bs="ts") + 
@@ -422,41 +420,47 @@ shannon_gam <- gam(H ~ Station +
                      s(log1p(RH),bs="ts"),
                    random = list(Yearf = ~ 1, sample_event = ~ 1),
                    data = base_data, family = 'gaussian')
-summary(shannon_gam)
+summary(shannon_gam$gam)
 ```
 
 ```{r}
-anova(shannon_gam)
+anova(shannon_gam$gam)
 ```
+
+
+## Station (Season is Not Significant by ANOVA)
+```{r fig.width = 3, fig.height = 2}
+Sta_emms <- emmeans(shannon_gam, ~Station, type = 'response', 
+                    data = base_data)
+plot(Sta_emms)
+pairs(Sta_emms, adjust ='bonferroni')
+```
+
 
 ## Plot the GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
-plot(shannon_gam)
+plot(shannon_gam$gam)
 par(oldpar)
 ```
 
-While the GAMM fits curves for several predictors, only the relationship with
-salinity is retained in the model as statistically significant.  It appears
-much of that pattern is driven by a couple of low salinity samples.  This model
-is rather unsatisfying, as it finds no robust significant relationships.  We may
-want to evaluate similar models with fewer parameters to see if we can extract 
-more wisdom.
+Only the relationship with salinity is retained in the model as statistically
+significant.  It appears much, but perhaps not all, of that pattern is driven by
+a couple of low salinity samples.
 
 ### Diagnostic Plots
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
-gam.check(shannon_gam)
+gam.check(shannon_gam$gam)
 par(oldpar)
 ```
 
-Not a bad model from a diagnostics point of view. If only we had learned
-something useful from it.
+Not a bad model from a diagnostics point of view.
 
 # Model of River Herring Abundance
 ## Summary and ANOVA
 ```{r}
-herring_gam <- gam(log1p(RH) ~ Station + 
+herring_gam <- gamm(log1p(RH) ~ Station + 
                      Season +
                      s(Temp, bs="ts") +
                      s(Sal, bs="ts") + 
@@ -465,34 +469,37 @@ herring_gam <- gam(log1p(RH) ~ Station +
                      s(log1p(combined_density),bs="ts"),
                    random = list(Yearf = ~ 1, sample_event = ~ 1),
                    data = base_data, family = 'gaussian')
-summary(herring_gam)
+summary(herring_gam$gam)
 ```
 
 ```{r}
-anova(herring_gam)
+anova(herring_gam$gam)
 ```
 
-Note that overall, Station is NOT statistically significant by F test, although
-individual parameters ARE significant by T test. The usual statistical advice is
-that to avoid making claims on weak evidence, one should not interpret
-individual parameters within a factor unless the overall comparison is
-significant.  Here the issue is that the Spring sample is the base case in the 
-parameter table, and Spring is moderately different from all other seasons. 
+Note that overall, Station matters, but Season does not.
 
-While the GAMM fits curves for several predictors, only the relationship with
-Turbidity in the model is statistically significant. The relationship is
-essentially linear (EDF = 0.87).
+Only the smoothed relationship with  Salinity in the model is statistically 
+significant. The relationship is essentially linear (EDF = 0.95).
+
+## Station (Season is Not Significant by ANOVA)
+```{r fig.width = 3, fig.height = 2}
+Sta_emms <- emmeans(herring_gam, ~Station, type = 'response', 
+                    data = base_data)
+plot(Sta_emms)
+pairs(Sta_emms, adjust ='bonferroni')
+```
+
 
 ## Plot GAM results
 ```{r}
 oldpar <- par(mfrow = c(2,3))
-plot(herring_gam)
+plot(herring_gam$gam)
 par(oldpar)
 ```
 ## Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
-gam.check(shannon_gam)
+gam.check(herring_gam$gam)
 par(oldpar)
 ```
 
@@ -534,7 +541,7 @@ numbers constrain the GAM to fit smoother lines.
 ```{r}
 my_gamm <- function(.dat) {
   
-  gam(log1p(Density) ~ Station + 
+  gamm(log1p(Density) ~ Station + 
         Season +
         s(Temp, bs="ts", k = 4) +
         s(Sal, bs="ts", k = 4) + 
@@ -557,7 +564,8 @@ spp_analysis <- spp_data %>%
 ```
 
 and finally, output the model results.  I can do that in a "for" loop, but it's 
-Awkward to look through a long list of output, so I step through each species in turn.
+Awkward to look through a long list of output, so I step through each species in 
+turn.
 
 \newpage
 ## Acartia
@@ -565,20 +573,14 @@ Awkward to look through a long list of output, so I step through each species in
 ```{r}
 spp = 'Acartia'
 mod <- spp_analysis$gam_mods[spp_analysis$Species == spp][[1]]
-summary(mod)
+summary(mod$gam)
 cat('\n')
-anova(mod)
+anova(mod$gam)
 ```
 
-### Comparison of Station and Season
+### Comparison Season and Station (Station is not significant)
 I'm showing "marginal" means -- essentially means adjusted for the other 
 predictors, at their mean values.
-```{r fig.width = 3, fig.height = 2}
-Sta_emms <- emmeans(mod, ~Station, type = 'response', 
-                    data = spp_analysis$data[spp_data$Species == spp][[1]])
-plot(Sta_emms)
-pairs(Sta_emms, adjust ='bonferroni')
-```
 
 ```{r fig.width = 3, fig.height = 2}
 Seas_emms <- emmeans(mod, ~Season, type = 'response', 
@@ -587,17 +589,24 @@ plot(Seas_emms)
 pairs(Seas_emms, adjust ='bonferroni')
 ```
 
+```{r fig.width = 3, fig.height = 2}
+Sta_emms <- emmeans(mod, ~Station, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Sta_emms)
+pairs(Sta_emms, adjust ='bonferroni')
+```
+
 ### Plot GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
-plot(mod)
+plot(mod$gam)
 par(oldpar)
 ```
 
 ### Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
-gam.check(mod)
+gam.check(mod$gam)
 par(oldpar)
 ```
 
@@ -607,12 +616,12 @@ par(oldpar)
 ```{r}
 spp = 'Balanus'
 mod <- spp_analysis$gam_mods[spp_analysis$Species == spp][[1]]
-summary(mod)
+summary(mod$gam)
 cat('\n')
-anova(mod)
+anova(mod$gam)
 ```
 
-### Comparison of Station and Season
+### Comparison of Station and Season (Season is not significant)
 I'm showing "marginal" means -- essentially means adjusted for the other 
 predictors, at their mean values.
 ```{r fig.width = 3, fig.height = 2}
@@ -632,14 +641,14 @@ pairs(Seas_emms, adjust ='bonferroni')
 ### Plot GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
-plot(mod)
+plot(mod$gam)
 par(oldpar)
 ```
 
 ### Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
-gam.check(mod)
+gam.check(mod$gam)
 par(oldpar)
 ```
 
@@ -649,10 +658,42 @@ par(oldpar)
 ```{r}
 spp =  "Eurytemora" 
 mod <- spp_analysis$gam_mods[spp_analysis$Species == spp][[1]]
-summary(mod)
+summary(mod$gam)
 cat('\n')
-anova(mod)
+anova(mod$gam)
 ```
+
+### Comparison of Station and Season (Season marginally significant)
+I'm showing "marginal" means -- essentially means adjusted for the other 
+predictors, at their mean values.
+```{r fig.width = 3, fig.height = 2}
+Sta_emms <- emmeans(mod, ~Station, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Sta_emms)
+pairs(Sta_emms, adjust ='bonferroni')
+```
+
+```{r fig.width = 3, fig.height = 2}
+Seas_emms <- emmeans(mod, ~Season, type = 'response', 
+                    data = spp_analysis$data[spp_data$Species == spp][[1]])
+plot(Seas_emms)
+pairs(Seas_emms, adjust ='bonferroni')
+```
+
+### Plot GAM
+```{r}
+oldpar <- par(mfrow = c(2,3))
+plot(mod$gam)
+par(oldpar)
+```
+
+### Model Diagnostics
+```{r fig.width = 5, fig.height = 5}
+oldpar <- par(mfrow = c(2,2))
+gam.check(mod$gam)
+par(oldpar)
+```
+
 
 ### Comparison of Station and Season
 I'm showing "marginal" means -- essentially means adjusted for the other 
@@ -674,26 +715,27 @@ pairs(Seas_emms, adjust ='bonferroni')
 ### Plot GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
-plot(mod)
+plot(mod$gam)
 par(oldpar)
 ```
 
 ### Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
-gam.check(mod)
+gam.check(mod$gam)
 par(oldpar)
 ```
 
 \newpage
 ## Polychaete
+**Warning:  Model did not converge normally!**
 ### Summary and ANOVA
 ```{r}
-spp =  "Polychaete" 
+spp =  "Polychaete"
 mod <- spp_analysis$gam_mods[spp_analysis$Species == spp][[1]]
-summary(mod)
+summary(mod$gam)
 cat('\n')
-anova(mod)
+anova(mod$gam)
 ```
 
 ### Comparison of Station and Season
@@ -716,16 +758,17 @@ pairs(Seas_emms, adjust ='bonferroni')
 ### Plot GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
-plot(mod)
+plot(mod$gam)
 par(oldpar)
 ```
 
 ### Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
-gam.check(mod)
+gam.check(mod$gam)
 par(oldpar)
 ```
+
 
 \newpage
 ## Pseudocal
@@ -733,9 +776,9 @@ par(oldpar)
 ```{r}
 spp =  "Pseudocal"
 mod <- spp_analysis$gam_mods[spp_analysis$Species == spp][[1]]
-summary(mod)
+summary(mod$gam)
 cat('\n')
-anova(mod)
+anova(mod$gam)
 ```
 
 ### Comparison of Station and Season
@@ -758,14 +801,14 @@ pairs(Seas_emms, adjust ='bonferroni')
 ### Plot GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
-plot(mod)
+plot(mod$gam)
 par(oldpar)
 ```
 
 ### Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
-gam.check(mod)
+gam.check(mod$gam)
 par(oldpar)
 ```
 
@@ -775,9 +818,9 @@ par(oldpar)
 ```{r}
 spp =  "Temora"   
 mod <- spp_analysis$gam_mods[spp_analysis$Species == spp][[1]]
-summary(mod)
+summary(mod$gam)
 cat('\n')
-anova(mod)
+anova(mod$gam)
 ```
 
 ### Comparison of Station and Season
@@ -797,18 +840,84 @@ plot(Seas_emms)
 pairs(Seas_emms, adjust ='bonferroni')
 ```
 
-### PLot GAM
+### Plot GAM
 ```{r}
 oldpar <- par(mfrow = c(2,3))
-plot(mod)
+plot(mod$gam)
 par(oldpar)
 ```
 
 ### Model Diagnostics
 ```{r fig.width = 5, fig.height = 5}
 oldpar <- par(mfrow = c(2,2))
-gam.check(mod)
+gam.check(mod$gam)
 par(oldpar)
+```
+\newpage
+
+# Why Did the Polychaete Model fail to Converge?
+## And does it matter?
+I run the same analysis again....
+
+```{r}
+p_data <- spp_data %>%
+  filter(Species == 'Polychaete')
+```
+
+```{r}
+ mod_1 <- gamm(log1p(Density) ~ Station + 
+        Season +
+        s(Temp, bs="ts", k = 4) +
+        s(Sal, bs="ts", k = 4) + 
+        s(log(Turb), bs="ts", k = 4) + 
+        s(log(Chl), bs="ts", k = 4) + 
+        s(log1p(RH),bs="ts", k = 4),
+      random = list(Yearf = ~ 1, sample_event = ~ 1),
+      data = p_data, family = "gaussian")
+```
+
+```{r}
+summary(mod_1$gam)
+```
+Removing ANY of the smoothers or EITHER of the random effects makes the warning 
+disappear. Even reducing the degree of smoothing in the smoothed terms
+removes the problem -- in spite of the fact that the actual fitted relationships
+are linear.  Changing the degree of smoothing should have minimal impact on the 
+model, since the smoothed terms were all reduced to nearly linear relationships.
+I run a slightly modified model to compare results.
+
+```{r}
+ mod_2 <- gamm(log1p(Density) ~ Station + 
+        Season +
+        s(Temp, bs="ts", k = 3) +
+        s(Sal, bs="ts", k = 3) + 
+        s(log(Turb), bs="ts", k = 3) + 
+        s(log(Chl), bs="ts", k = 3) + 
+        s(log1p(RH),bs="ts", k = 3),
+      random = list(Yearf = ~ 1, sample_event = ~ 1),
+      data = p_data, family = "gaussian")
+summary(mod_2$gam)
+```
+
+
+
+Parameter values are largely unchanged with this slightly simpler model, and we 
+no longer get the warning. 
+
+```{r}
+plot(mod_2$gam)
+```
+
+And the graphic results are identical.
+
+That suggests the problem is that the model has simply gotten too complex for 
+the limited amount of data.  Effectively, we ran out of degrees of freedom.
+Here we have only a single missing vale, but a large number of zero values,
+which could create a singular fit.
+
+```{r}
+sum(is.na(p_data$Density))
+sum(p_data$Density == 0)
 ```
 
 

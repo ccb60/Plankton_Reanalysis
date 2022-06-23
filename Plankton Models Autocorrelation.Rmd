@@ -1,5 +1,5 @@
 ---
-title: "Random Factors and AUtocorrelation in Plankton Models"
+title: "Random Factors and Autocorrelation in Plankton Models"
 author: "Curtis C. Bohlen, Casco Bay Estuary Partnership"
 date: "4/04/2022"
 output:
